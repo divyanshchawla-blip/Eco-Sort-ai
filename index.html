@@ -105,6 +105,12 @@
   .bin-label{ font-size:12px; color:var(--muted); font-weight:bold; }
   .cat-pill{ display:inline-block;padding:5px 14px;border-radius:20px; font-size:12.5px;font-weight:bold;color:white; }
   .raw{ font-size:11px;color:var(--muted);margin-top:6px; }
+  .correct-row{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11.5px; color:var(--muted); }
+  .correct-row select{ padding:5px 8px; border:1px solid var(--input-border); border-radius:6px; font-size:11.5px; background:var(--card-bg); color:var(--text); }
+  .retry-link{ background:none; border:1px solid var(--input-border); color:var(--forest); padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold; cursor:pointer; margin-left:4px; }
+  body.dark .retry-link{ color:#8FDBAC; }
+  .damaged-row{ display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11.5px; color:var(--muted); cursor:pointer; background:var(--sand); padding:8px 10px; border-radius:8px; }
+  .damaged-row input{ flex-shrink:0; }
   .weight-row{ display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;flex-wrap:wrap; }
   .weight-row input{ width:78px;padding:6px 8px;border:1px solid var(--input-border);border-radius:6px;font-size:13px; background:var(--card-bg); color:var(--text); }
 
@@ -214,10 +220,51 @@
   body.dark .email-fallback a{ color:#8FDBAC; }
   .email-fallback button{ margin-top:8px; }
 
-  footer{ text-align:center;padding:16px;font-size:11px;color:var(--muted); }
+  footer{ text-align:center;padding:16px;font-size:11px;color:var(--muted); position:relative; z-index:1; }
+
+  /* ---------- Decorative nature elements ---------- */
+  .corner-deco{
+    position:fixed; font-size:180px; opacity:0.05; pointer-events:none; z-index:0;
+    color:var(--forest); filter:blur(0.5px); line-height:1;
+  }
+  body.dark .corner-deco{ opacity:0.08; }
+  .corner-tl{ top:-50px; left:-50px; transform:rotate(-18deg); }
+  .corner-br{ bottom:-60px; right:-60px; transform:rotate(14deg); }
+
+  .side-vine{
+    position:fixed; top:0; bottom:0; width:34px; z-index:0; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-evenly;
+    font-size:17px; opacity:0.12; writing-mode:vertical-rl;
+  }
+  .side-vine-left{ left:6px; }
+  .side-vine-right{ right:6px; }
+  @media (max-width:1200px){ .side-vine{ display:none; } }
+
+  .leaf-field{ position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+  .leaf-particle{
+    position:absolute; top:-8vh; font-size:18px; opacity:0.4;
+    animation:driftDown linear infinite;
+  }
+  @keyframes driftDown{
+    0%{ transform:translate(0,0) rotate(0deg); opacity:0; }
+    8%{ opacity:0.45; }
+    92%{ opacity:0.35; }
+    100%{ transform:translate(var(--drift,40px),112vh) rotate(320deg); opacity:0; }
+  }
+
+  /* keep main content above decorative background layers */
+  .wrap{ position:relative; z-index:1; }
 </style>
 </head>
 <body>
+
+<!-- Decorative nature elements: fixed corner motifs + continuously drifting leaves -->
+<div class="corner-deco corner-tl">🌿</div>
+<div class="corner-deco corner-br">🍃</div>
+<div class="side-vine side-vine-left" aria-hidden="true">🌿🍃🌿🍂🌿🍃🌿🍂🌿🍃🌿🍂</div>
+<div class="side-vine side-vine-right" aria-hidden="true">🍂🌿🍃🌿🍂🌿🍃🌿🍂🌿🍃🌿</div>
+<div class="leaf-field" id="leafField"></div>
+
 
 <header>
   <div class="logo">♻️</div>
@@ -288,7 +335,7 @@
       <button class="secondary" id="cancelCamBtn">Cancel</button>
     </div>
 
-    <div id="previewWrap"><canvas id="previewCanvas" width="400" height="220"></canvas></div>
+    <div id="previewWrap"><canvas id="previewCanvas" width="640" height="400"></canvas></div>
 
     <div class="status-row">
       <div class="spinner" id="spinner"></div>
@@ -305,10 +352,27 @@
       </div>
       <div class="bin-row"><span class="bin-label">Goes in:</span><span class="cat-pill" id="catPill">—</span></div>
       <div class="raw" id="rawLabel"></div>
+      <div class="correct-row" id="correctRow">
+        <span>Not right?</span>
+        <select id="correctSelect">
+          <option value="">Choose correct category…</option>
+          <option value="wet">Wet / Organic</option>
+          <option value="dry">Dry / Recyclable</option>
+          <option value="metal">Metal Scrap</option>
+          <option value="glass">Glass</option>
+          <option value="textile">Textile / Cloth</option>
+          <option value="hazardous">Hazardous / E-Waste</option>
+          <option value="other">Non-Recyclable</option>
+        </select>
+      </div>
       <div class="weight-row">
         <span>Estimated weight:</span>
         <input type="number" id="weightInput" min="0.001" step="0.001" value="0.03" /> kg
       </div>
+      <label class="damaged-row" id="damagedRow">
+        <input type="checkbox" id="damagedCheckbox" />
+        ⚠️ Damaged / not sellable — log for Green Points only, no cash value
+      </label>
       <button class="primary" id="addCartBtn">➕ Add to Cart</button>
     </div>
   </div>
@@ -396,15 +460,19 @@ const LEVELS = [
   { min:300,  name:"Eco Warrior",  emoji:"🌳" }, { min:700,  name:"Eco Champion", emoji:"🏆" },
   { min:1500, name:"Eco Legend",   emoji:"👑" },
 ];
+// Costs assume ~10 pts/day of genuine sorted-waste selling (see earn-rate
+// comment above). "Cheap" rewards land around 2 weeks in; the higher-value
+// ones (tree planting, tote bag, compost kit) land around 4-6 weeks —
+// roughly a month of real engagement before real-cost perks unlock.
 const REWARDS = [
-  { emoji:"🏅", name:"Digital Eco Certificate",        cost:80  },
-  { emoji:"🌳", name:"Plant a Tree in Your Name",       cost:150 },
-  { emoji:"☕", name:"Campus Café 20% Off Coupon",      cost:120 },
-  { emoji:"🚌", name:"Free Metro/Bus Day Pass",         cost:200 },
-  { emoji:"🎽", name:"EcoSort Reusable Tote Bag",       cost:250 },
-  { emoji:"🎬", name:"Movie Ticket Discount",           cost:300 },
-  { emoji:"🪴", name:"Balcony Compost Starter Kit",     cost:400 },
-  { emoji:"👑", name:"\"Top Sorter\" Leaderboard Badge",cost:500 },
+  { emoji:"🏅", name:"Digital Eco Certificate",        cost:150 },
+  { emoji:"☕", name:"Campus Café 20% Off Coupon",      cost:220 },
+  { emoji:"🌳", name:"Plant a Tree in Your Name",       cost:280 },
+  { emoji:"🚌", name:"Free Metro/Bus Day Pass",         cost:300 },
+  { emoji:"🎽", name:"EcoSort Reusable Tote Bag",       cost:330 },
+  { emoji:"🎬", name:"Movie Ticket Discount",           cost:360 },
+  { emoji:"🪴", name:"Balcony Compost Starter Kit",     cost:420 },
+  { emoji:"👑", name:"\"Top Sorter\" Leaderboard Badge",cost:480 },
 ];
 
 const SAMPLES = [
@@ -415,13 +483,13 @@ const SAMPLES = [
   { name:"Milk Pouch",emoji:"🥛",cat:"dry",weight:0.01 }, { name:"Newspaper",emoji:"📰",cat:"dry",weight:0.2 },
   { name:"Cardboard Box",emoji:"📦",cat:"dry",weight:0.15 }, { name:"Paper Cup",emoji:"🥤",cat:"dry",weight:0.01 },
   { name:"Tin Can",emoji:"🥫",cat:"metal",weight:0.04 }, { name:"Aluminium Foil",emoji:"🧻",cat:"metal",weight:0.005 },
-  { name:"Glass Bottle",emoji:"🍾",cat:"glass",weight:0.4 }, { name:"Broken Glass",emoji:"🔺",cat:"glass",weight:0.1 },
+  { name:"Glass Bottle",emoji:"🍾",cat:"glass",weight:0.4 }, { name:"Broken Glass",emoji:"🔺",cat:"glass",weight:0.1,condition:"damaged" },
   { name:"Old Cloth/Rag",emoji:"👕",cat:"textile",weight:0.2 }, { name:"Old Jute Bag",emoji:"🧵",cat:"textile",weight:0.15 },
   { name:"Mobile Phone",emoji:"📱",cat:"hazardous",weight:0.18 }, { name:"Battery",emoji:"🔋",cat:"hazardous",weight:0.03 },
   { name:"CFL/LED Bulb",emoji:"💡",cat:"hazardous",weight:0.05 }, { name:"Electric Wire",emoji:"🔌",cat:"hazardous",weight:0.1 },
   { name:"Gutkha Pouch",emoji:"🚫",cat:"other",weight:0.002 }, { name:"Chips Packet",emoji:"🍟",cat:"other",weight:0.01 },
   { name:"Cigarette Butt",emoji:"🚬",cat:"other",weight:0.001 }, { name:"Thermocol",emoji:"⬜",cat:"other",weight:0.02 },
-  { name:"Broken Slipper",emoji:"🩴",cat:"other",weight:0.15 },
+  { name:"Broken Slipper",emoji:"🩴",cat:"other",weight:0.15,condition:"damaged" },
 ];
 
 // ---------- State ----------
@@ -431,7 +499,7 @@ let currentItem=null, activeTab="all", cart=[], cameraStream=null;
 const els = {};
 ["tabs","sampleGrid","fileInput","cameraBtn","videoWrap","cameraVideo","snapBtn","cancelCamBtn",
  "previewWrap","previewCanvas","spinner","statusText","resultBox","detectedEmoji","detectedName",
- "catPill","rawLabel","weightInput","addCartBtn","pointsNum","kgNum","earnNum","statStrip","pointsStat",
+ "catPill","rawLabel","correctSelect","weightInput","damagedCheckbox","addCartBtn","pointsNum","kgNum","earnNum","statStrip","pointsStat",
  "levelBadge","levelName","levelNext","levelProgress","streakBadge","streakNum",
  "cartArea","cartTotal","sellCartBtn","marketArea","historyArea","rewardGrid","rateTable","aiFlag",
  "themeToggle","loginBtn","modalBackdrop","modalClose","loginName","loginAddress","loginPhone","loginDOB",
@@ -472,7 +540,7 @@ function renderSampleGrid(){
     btn.className = 'sample-btn';
     const info = CATEGORY_INFO[s.cat];
     btn.innerHTML = `<div class="dot" style="background:#${info.hex}"></div><div class="emoji">${s.emoji}</div><div class="name">${s.name}</div>`;
-    btn.addEventListener('click', () => showDetected(s.name, s.cat, s.weight, "sample item", s.emoji));
+    btn.addEventListener('click', () => showDetected(s.name, s.cat, s.weight, "sample item", s.emoji, s.condition || "good"));
     els.sampleGrid.appendChild(btn);
   });
 }
@@ -531,15 +599,36 @@ function handleFile(file){
 }
 
 // ---------- Real AI classification via Claude vision ----------
+let lastCanvasForRetry = null;
+
 async function classifyCanvasWithClaude(canvas){
+  lastCanvasForRetry = canvas;
   els.resultBox.style.display = 'none';
   els.spinner.style.display = 'inline-block';
-  els.statusText.textContent = "Asking Claude AI to identify this item...";
+  els.statusText.innerHTML = "Asking Claude AI to identify this item...";
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  // Higher quality JPEG encode for better recognition accuracy
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   const base64 = dataUrl.split(',')[1];
 
-  const prompt = `You are an image classifier for an Indian waste-sorting app. Look at this photo and identify the single main waste/discarded item shown. Respond with ONLY raw JSON, no markdown, no explanation, in exactly this format: {"item": "short common name", "category": "wet|dry|metal|glass|textile|hazardous|other", "estimated_weight_kg": number}. Category guide: wet = organic/food waste; dry = paper or plastic recyclables; metal = tin/aluminium scrap; glass = glass bottles/items; textile = cloth/fabric; hazardous = e-waste, batteries, electronics, wires; other = non-recyclable litter (multilayer plastic wrappers, cigarette butts, tobacco pouches, thermocol). If you cannot clearly identify an item, use category "other" and item "unidentified item".`;
+  const prompt = `You are an image classifier for an Indian waste-sorting app.
+Look carefully at this photo and identify the single main waste/discarded item shown — even if the photo is imperfect, angled, or partially visible, give your best specific guess (e.g. "plastic water bottle" rather than just "bottle" or "object").
+
+Also assess its physical CONDITION for resale: is it intact/sellable scrap, or is it damaged/broken/contaminated/crushed to the point a scrap dealer would refuse to buy it (e.g. shattered glass shards, crushed cans full of dirt, torn/soiled fabric, broken electronics missing parts)? Damaged items can still be logged correctly for Green Points, just not sold for money.
+
+Respond with ONLY raw JSON, no markdown code fences, no explanation before or after, in exactly this shape:
+{"item": "short common name (2-4 words)", "category": "wet|dry|metal|glass|textile|hazardous|other", "condition": "good|damaged", "estimated_weight_kg": number, "confidence": "high|medium|low"}
+
+Category guide:
+- wet: food scraps, fruit/vegetable peels, garden/organic waste
+- dry: paper, cardboard, plastic bottles/bags/packaging that IS commonly recycled
+- metal: tin cans, aluminium foil, metal scrap
+- glass: glass bottles, jars, broken glass
+- textile: cloth, rags, fabric, old clothing
+- hazardous: batteries, phones, electronics, wires, bulbs, e-waste
+- other: multilayer plastic wrappers, tobacco pouches, cigarette butts, thermocol, diapers, anything with no real recycling value
+
+Only use category "other" with item "unidentified item" if you truly cannot tell what the object is — otherwise always make your best specific guess. Default condition to "good" unless damage is clearly visible.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -557,27 +646,53 @@ async function classifyCanvasWithClaude(canvas){
         }]
       })
     });
+
+    if (!response.ok){
+      throw new Error(`API returned status ${response.status}`);
+    }
     const data = await response.json();
+
+    if (data.error){
+      throw new Error(data.error.message || "API returned an error");
+    }
+    if (!data.content || !Array.isArray(data.content)){
+      throw new Error("Unexpected response shape from AI");
+    }
+
     const textBlock = data.content.find(b => b.type === "text");
-    const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    if (!textBlock) throw new Error("No text in AI response");
+
+    // Robust JSON extraction — pulls the first {...} block even if the
+    // model adds stray text around it, instead of a brittle exact parse.
+    let raw = textBlock.text.trim();
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Could not find JSON in AI response: " + raw.slice(0,120));
+    const parsed = JSON.parse(jsonMatch[0]);
 
     const cat = CATEGORY_INFO[parsed.category] ? parsed.category : "other";
-    const weight = Number(parsed.estimated_weight_kg) || 0.1;
+    const weight = Number(parsed.estimated_weight_kg) > 0 ? Number(parsed.estimated_weight_kg) : 0.1;
+    const confidence = parsed.confidence || "medium";
+    const condition = parsed.condition === "damaged" ? "damaged" : "good";
 
     els.spinner.style.display = 'none';
     els.statusText.textContent = 'Done.';
-    showDetected(parsed.item || "unidentified item", cat, weight, "Identified by Claude AI vision", "📷");
+    const conditionNote = condition === "damaged" ? " — ⚠️ looks damaged, points only" : "";
+    showDetected(parsed.item || "unidentified item", cat, weight, `Identified by Claude AI vision (${confidence} confidence)${conditionNote}`, "📷", condition);
   } catch(err){
     console.warn("Claude vision classification failed:", err);
     els.spinner.style.display = 'none';
-    els.statusText.textContent = "Couldn't identify automatically — please pick the closest match from the items above instead.";
+    els.statusText.innerHTML = `AI couldn't classify this photo (${escapeHtml(err.message || String(err))}). <button class="retry-link" id="retryClassify">🔄 Try again</button> or pick an item above.`;
+    const retryBtn = document.getElementById('retryClassify');
+    if (retryBtn) retryBtn.addEventListener('click', () => classifyCanvasWithClaude(lastCanvasForRetry));
   }
+}
+function escapeHtml(s){
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
 }
 
 // ---------- Show detected item (shared by samples + AI) ----------
-function showDetected(name, cat, weight, note, emoji){
-  currentItem = { name, cat, weight };
+function showDetected(name, cat, weight, note, emoji, condition){
+  currentItem = { name, cat, weight, condition: condition || "good" };
   const info = CATEGORY_INFO[cat];
   els.resultBox.style.display = 'block';
   els.resultBox.style.background = `#${info.hex}18`;
@@ -587,6 +702,8 @@ function showDetected(name, cat, weight, note, emoji){
   els.catPill.style.background = '#'+info.hex;
   els.rawLabel.textContent = note;
   els.weightInput.value = weight;
+  els.correctSelect.value = "";
+  els.damagedCheckbox.checked = currentItem.condition === "damaged";
 
   if (!SAMPLES.some(s=>s.name===name)){ // only animate for real scans, not too noisy
     els.spinner.style.display = 'none'; els.statusText.textContent='Done.';
@@ -595,17 +712,36 @@ function showDetected(name, cat, weight, note, emoji){
   els.streakBadge.style.display = 'inline-flex';
   els.streakNum.textContent = streakCount;
 }
+els.damagedCheckbox.addEventListener('change', () => {
+  if (!currentItem) return;
+  currentItem.condition = els.damagedCheckbox.checked ? "damaged" : "good";
+});
+els.correctSelect.addEventListener('change', () => {
+  const newCat = els.correctSelect.value;
+  if (!newCat || !currentItem) return;
+  currentItem.cat = newCat;
+  const info = CATEGORY_INFO[newCat];
+  els.resultBox.style.background = `#${info.hex}18`;
+  els.catPill.textContent = info.label;
+  els.catPill.style.background = '#'+info.hex;
+  els.rawLabel.textContent = "Manually corrected by you";
+});
 
 // ---------- Cart ----------
 els.addCartBtn.addEventListener('click', () => {
   if (!currentItem) return;
   const w = parseFloat(els.weightInput.value) || 0.001;
-  cart.push({ id: Date.now()+Math.random(), name: currentItem.name, cat: currentItem.cat, weight: w });
+  cart.push({ id: Date.now()+Math.random(), name: currentItem.name, cat: currentItem.cat, weight: w, condition: currentItem.condition || "good" });
   renderCart();
   els.resultBox.style.display = 'none';
   els.previewWrap.style.display = 'none';
   spawnPointsFloat("+Added 🛒");
 });
+
+function itemValue(item){
+  if (item.condition === "damaged") return 0; // damaged items: points only, no cash value
+  return CATEGORY_INFO[item.cat].price * item.weight;
+}
 
 function renderCart(){
   if (cart.length === 0){
@@ -617,14 +753,14 @@ function renderCart(){
   els.cartArea.innerHTML = '';
   cart.forEach(item => {
     const info = CATEGORY_INFO[item.cat];
-    const value = info.price * item.weight;
+    const value = itemValue(item);
     const row = document.createElement('div');
     row.className = 'cart-item';
     row.innerHTML = `
       <span class="ci-emoji">${SAMPLES.find(s=>s.name===item.name)?.emoji || '📷'}</span>
-      <span class="ci-name">${item.name}<br><span class="tag" style="background:#${info.hex};font-size:9px;">${info.label}</span></span>
+      <span class="ci-name">${item.name}<br><span class="tag" style="background:#${info.hex};font-size:9px;">${info.label}</span>${item.condition==='damaged'?' <span class="tag" style="background:#B23A3A;font-size:9px;">⚠️ Damaged</span>':''}</span>
       <input type="number" class="ci-weight" step="0.001" min="0.001" value="${item.weight}" data-id="${item.id}" />
-      <span class="ci-value">${value>0?'₹'+value.toFixed(2):'—'}</span>
+      <span class="ci-value">${value>0?'₹'+value.toFixed(2):'pts only'}</span>
       <button class="ci-remove" data-id="${item.id}">✕</button>
     `;
     els.cartArea.appendChild(row);
@@ -645,7 +781,7 @@ function renderCart(){
   });
 
   let gross=0, kgTotal=0;
-  cart.forEach(item => { gross += CATEGORY_INFO[item.cat].price * item.weight; kgTotal += item.weight; });
+  cart.forEach(item => { gross += itemValue(item); kgTotal += item.weight; });
   const fee = gross * PLATFORM_COMMISSION_RATE;
   const net = gross - fee;
   els.cartTotal.style.display = 'block';
@@ -671,7 +807,11 @@ els.sellCartBtn.addEventListener('click', () => {
   cart.forEach(item => {
     const info = CATEGORY_INFO[item.cat];
     const value = info.price * item.weight;
-    gross += value; kgTotal += item.weight; ptsTotal += Math.max(1, Math.round(item.weight*100));
+    // Earn rate deliberately set to 10 pts/kg (not 100) — assuming a realistic
+    // ~1kg/day of correctly-sorted sellable waste, this paces reward unlocks
+    // to roughly 2-8 weeks of genuine use, so redemption cost stays covered
+    // by real marketplace commission earned in that time (no giveaway loss).
+    gross += value; kgTotal += item.weight; ptsTotal += Math.max(1, Math.round(item.weight*10));
     byCat[item.cat] = (byCat[item.cat]||0) + value;
   });
   const fee = gross * PLATFORM_COMMISSION_RATE;
@@ -745,18 +885,40 @@ function renderRewards(){
 function redeemReward(idx){
   const r = REWARDS[idx];
   if (points < r.cost) return;
-  points -= r.cost;
+  const surplus = points - r.cost; // any leftover points are forfeited on redemption
+  points = 0; // scoreboard resets fully — one redemption per earning cycle
   els.pointsNum.innerHTML = `🌿 ${points}`;
   updateLevelDisplay(); renderRewards();
   spawnConfetti();
   if (els.historyArea.children.length===1 && els.historyArea.textContent.includes('No transactions')) els.historyArea.innerHTML='';
   const row = document.createElement('div');
   row.className='history-item';
-  row.innerHTML = `<span>${r.emoji} Redeemed: ${r.name}</span><span class="tag" style="background:#C77B3B">Reward</span><span style="font-weight:bold;color:var(--muted);">-${r.cost} 🌿</span>`;
+  const note = surplus > 0 ? ` (+${surplus} bonus pts reset too)` : '';
+  row.innerHTML = `<span>${r.emoji} Redeemed: ${r.name}${note}</span><span class="tag" style="background:#C77B3B">Reward</span><span style="font-weight:bold;color:var(--muted);">🌿 reset to 0</span>`;
   els.historyArea.prepend(row);
 }
 updateLevelDisplay();
 renderRewards();
+
+// ---------- Ambient nature animation: continuously drifting leaves ----------
+const LEAF_EMOJIS = ["🍃","🌿","🍂"];
+function spawnAmbientLeaf(){
+  const field = document.getElementById('leafField');
+  if (!field) return;
+  const leaf = document.createElement('div');
+  leaf.className = 'leaf-particle';
+  leaf.textContent = LEAF_EMOJIS[Math.floor(Math.random()*LEAF_EMOJIS.length)];
+  leaf.style.left = Math.random()*100 + 'vw';
+  leaf.style.fontSize = (14 + Math.random()*14) + 'px';
+  leaf.style.setProperty('--drift', (Math.random()*140 - 70) + 'px');
+  const duration = 14 + Math.random()*12;
+  leaf.style.animationDuration = duration + 's';
+  field.appendChild(leaf);
+  setTimeout(()=>leaf.remove(), duration*1000 + 500);
+}
+// Seed a few immediately, then keep a gentle steady stream going
+for (let i=0;i<5;i++) setTimeout(spawnAmbientLeaf, i*1800);
+setInterval(spawnAmbientLeaf, 3200);
 
 // ---------- Celebration effects ----------
 function spawnPointsFloat(text){
