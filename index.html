@@ -369,11 +369,16 @@ window.addEventListener('paste', e => {
   if (item) handleFile(item.getAsFile());
 });
 
-function handleFile(file){
+// Store original handleFile and classifyByColor (the latter is now just a placeholder for our backend call)
+const originalHandleFile = handleFile;
+const originalClassifyByColor = classifyByColor;
+
+// Override handleFile to directly interact with the Python backend
+handleFile = async (file) => {
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = async (ev) => { // Make onload async
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => { // Make img.onload async
       els.previewWrap.style.display = 'block';
       const ctx = els.previewCanvas.getContext('2d');
       const w = els.previewCanvas.width, h = els.previewCanvas.height;
@@ -386,26 +391,51 @@ function handleFile(file){
 
       els.resultBox.style.display = 'none';
       els.spinner.style.display = 'inline-block';
-      els.statusText.textContent = 'Analyzing colors on-device...';
+      els.statusText.textContent = 'Sending to AI backend...';
 
-      setTimeout(() => {
-        const cat = classifyByColor(ctx, w, h);
+      const imageDataUrl = els.previewCanvas.toDataURL('image/png');
+
+      try {
+        // Call the Python backend function
+        const result = await google.colab.kernel.invokeFunction('ai_classify_image', [imageDataUrl], {});
+        const python_result = result.data['application/json'][0];
+        const classifiedCategory = python_result.waste_category;
+        const classifiedLabel = python_result.object_name; // Get the object name from Python
+        const confidence = python_result.confidence;
+
+        console.log("Python backend returned:", python_result);
+
         els.spinner.style.display = 'none';
         els.statusText.textContent = 'Done.';
-        currentLabel = "your photo";
-        currentCategory = cat;
-        showResult(cat, "your photo", "on-device color analysis \u2014 swap in a trained CV model for production accuracy");
-      }, 500);
+
+        currentLabel = classifiedLabel; // Update currentLabel with the actual detected object
+        currentCategory = classifiedCategory;
+        // Pass the actual label and a more precise note to showResult
+        showResult(classifiedCategory, classifiedLabel, `AI model (Confidence: ${Math.round(confidence*100)}%)`);
+
+      } catch (error) {
+        console.error("Error invoking Python backend for classification:", error);
+        els.spinner.style.display = 'none';
+        els.statusText.textContent = "Classification failed via Python backend.";
+        currentLabel = "error"; // Set a meaningful label in case of error
+        currentCategory = 'other';
+        showResult('other', currentLabel, "AI model classification error");
+      }
     };
     img.onerror = () => { els.statusText.textContent = "Could not read that file — try another image."; };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
-}
+};
+
+// The original classifyByColor is now unused for uploads, but still exists for sample items
+// If you also want sample items to use the Python backend, you'd need to modify runSample.
+
+console.log("handleFile function overridden to use Python backend.");
 
 // Simple on-device heuristic: average color + darkness → rough category guess.
 // This is a lightweight stand-in for the trained CV model described in the pitch deck.
-function classifyByColor(ctx, w, h){
+function classifyByColor(ctx, w, h){ // This function is now superseded for actual uploads by the Python backend call in handleFile
   const data = ctx.getImageData(0,0,w,h).data;
   let r=0,g=0,b=0,n=0;
   for (let i=0;i<data.length;i+=40){
@@ -493,4 +523,4 @@ function addHistory(rawLabel, cat, w, payout){
 }
 </script>
 </body>
-</html>'''
+</html>
