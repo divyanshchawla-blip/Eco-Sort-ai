@@ -392,32 +392,56 @@ handleFile = async (file) => {
       const imageDataUrl = els.previewCanvas.toDataURL('image/png');
 
       try {
-        // Call the Python backend function
-        const result = await google.colab.kernel.invokeFunction('ai_classify_image', [imageDataUrl], {});
-        const python_result = result.data['application/json'][0];
-        const classifiedCategory = python_result.waste_category;
-        const classifiedLabel = python_result.object_name; // Get the object name from Python
-        const confidence = python_result.confidence;
 
-        console.log("Python backend returned:", python_result);
+    if (typeof google === "undefined" || !google.colab || !google.colab.kernel) {
+        throw new Error("Google Colab backend is not available.");
+    }
 
-        els.spinner.style.display = 'none';
-        els.statusText.textContent = 'Done.';
+    const result = await google.colab.kernel.invokeFunction(
+        "ai_classify_image",
+        [imageDataUrl],
+        {}
+    );
 
-        currentLabel = classifiedLabel; // Update currentLabel with the actual detected object
-        currentCategory = classifiedCategory;
-        // Pass the actual label and a more precise note to showResult
-        showResult(classifiedCategory, classifiedLabel, `AI model (Confidence: ${Math.round(confidence*100)}%)`);
+    console.log("Full Result:", result);
 
-      } catch (error) {
-        console.error("Error invoking Python backend for classification:", error);
-        els.spinner.style.display = 'none';
-        els.statusText.textContent = "Classification failed via Python backend.";
-        currentLabel = "error"; // Set a meaningful label in case of error
-        currentCategory = 'other';
-        showResult('other', currentLabel, "AI model classification error");
-      }
-    };
+    const python_result = result.data["application/json"][0];
+
+    console.log("Python Result:", python_result);
+
+    const classifiedCategory = python_result.waste_category;
+    const classifiedLabel = python_result.object_name;
+    const confidence = python_result.confidence;
+
+    els.spinner.style.display = "none";
+    els.statusText.textContent = "Done.";
+
+    currentLabel = classifiedLabel;
+    currentCategory = classifiedCategory;
+
+    showResult(
+        classifiedCategory,
+        classifiedLabel,
+        `AI model (Confidence: ${Math.round(confidence * 100)}%)`
+    );
+
+} catch (error) {
+
+    console.error(error);
+
+    els.spinner.style.display = "none";
+    els.statusText.textContent = error.message;
+
+    currentLabel = "error";
+    currentCategory = "other";
+
+    showResult(
+        "other",
+        "Error",
+        error.message
+    );
+        
+    }
     img.onerror = () => { els.statusText.textContent = "Could not read that file — try another image."; };
     img.src = ev.target.result;
   };
