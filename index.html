@@ -353,7 +353,7 @@ function runSample(idx){
   }, 550);
 }
 
-// ---------- Upload flow (bonus — offline color-heuristic classifier) ----------
+// ---------- Upload flow ----------
 els.dropzone.addEventListener('dragover', e => { e.preventDefault(); els.dropzone.style.background = '#EEF3EA'; });
 els.dropzone.addEventListener('dragleave', () => { els.dropzone.style.background = ''; });
 els.dropzone.addEventListener('drop', e => {
@@ -369,11 +369,7 @@ window.addEventListener('paste', e => {
   if (item) handleFile(item.getAsFile());
 });
 
-// Store original handleFile and classifyByColor (the latter is now just a placeholder for our backend call)
-const originalHandleFile = handleFile;
-const originalClassifyByColor = classifyByColor;
-
-// Override handleFile to directly interact with the Python backend
+// Modified handleFile to directly interact with the Python backend
 handleFile = async (file) => {
   const reader = new FileReader();
   reader.onload = async (ev) => { // Make onload async
@@ -428,14 +424,10 @@ handleFile = async (file) => {
   reader.readAsDataURL(file);
 };
 
-// The original classifyByColor is now unused for uploads, but still exists for sample items
-// If you also want sample items to use the Python backend, you'd need to modify runSample.
-
-console.log("handleFile function overridden to use Python backend.");
-
 // Simple on-device heuristic: average color + darkness → rough category guess.
 // This is a lightweight stand-in for the trained CV model described in the pitch deck.
-function classifyByColor(ctx, w, h){ // This function is now superseded for actual uploads by the Python backend call in handleFile
+// This function is now superseded for actual uploads by the Python backend call in handleFile
+function classifyByColor(ctx, w, h){
   const data = ctx.getImageData(0,0,w,h).data;
   let r=0,g=0,b=0,n=0;
   for (let i=0;i<data.length;i+=40){
