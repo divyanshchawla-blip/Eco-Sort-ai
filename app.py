@@ -16,20 +16,23 @@ print("Loading pretrained AI model (MobileNetV2)... this happens once.")
 model = MobileNetV2(weights="imagenet")
 print("Model loaded. Ready to classify photos.\n")
 
+# Expanded CATEGORY_KEYWORDS for better classification coverage
 CATEGORY_KEYWORDS = {
     "Hazardous / E-Waste": [
         "cellular_telephone", "iPod", "laptop", "notebook", "desktop_computer",
         "remote_control", "joystick", "modem", "hard_disc", "printer",
         "monitor", "screen", "digital_watch", "electric_fan", "microwave",
         "hair_dryer", "power_drill", "stopwatch", "cassette_player",
-        "polaroid_camera", "radio", "loudspeaker", "projector"
+        "polaroid_camera", "radio", "loudspeaker", "projector",
+        "television", "computer", "phone", "battery", "electronic_device", "appliance"
     ],
     "Wet / Organic Waste": [
         "banana", "orange", "lemon", "pineapple", "strawberry", "fig",
         "pomegranate", "corn", "broccoli", "cauliflower", "zucchini",
         "cucumber", "artichoke", "mushroom", "bell_pepper", "head_cabbage",
         "spaghetti_squash", "acorn_squash", "butternut_squash", "cardoon",
-        "custard_apple", "granny_smith", "hay"
+        "custard_apple", "granny_smith", "hay",
+        "vegetable", "fruit", "food", "bread", "meat", "egg", "plant", "leaf", "soil", "peel", "core"
     ],
     "Dry / Recyclable": [
         "pop_bottle", "water_bottle", "beer_bottle", "wine_bottle",
@@ -37,7 +40,8 @@ CATEGORY_KEYWORDS = {
         "tin_can", "packet", "carton", "crate", "bucket", "envelope",
         "paper_towel", "book_jacket", "comic_book", "menu", "vase",
         "goblet", "beaker", "cocktail_shaker", "soup_bowl", "wooden_spoon",
-        "paper_bag", "newspaper"
+        "paper_bag", "newspaper",
+        "bottle", "can", "box", "plastic", "paper", "glass", "cup", "jar", "bag", "cardboard", "container", "packaging"
     ]
 }
 
@@ -46,6 +50,7 @@ def map_to_waste_category(imagenet_label):
     label_lower = imagenet_label.lower()
     for category, keywords in CATEGORY_KEYWORDS.items():
         for kw in keywords:
+            # Using 'in' for partial matches as keywords might be subsets of ImageNet labels
             if kw.replace("_", " ") in label_lower.replace("_", " "):
                 return category
     return "General / Unclassified"
@@ -76,7 +81,7 @@ def classify_image_backend(image_b64_data):
         # Map to waste category
         category = map_to_waste_category(imagenet_label)
         print(f"Classified as: {category} (ImageNet label: {imagenet_label}, Confidence: {confidence:.2f})")
-        
+
         # Return all relevant classification details
         return {"object_name": imagenet_label, "confidence": float(confidence), "waste_category": category}
 
@@ -118,13 +123,21 @@ category_prices = {
 # Example of how you would use these functions in a backend API endpoint:
 # (This part is illustrative and would be wrapped in a web framework like Flask/Django)
 if __name__ == '__main__':
-    print("\nThis is a demonstration of the backend functions.\n")
-    # Simulate receiving image data (e.g., from a web request)
-    # For testing, we'll use a dummy base64 string
-    dummy_image_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    print("\nThis is a demonstration of the backend functions.")
+    print("In a real backend, you would receive base64 encoded image data (e.g., from an API request).")
+    # Example of how to simulate receiving image data:
+    # For a real application, replace this with actual image data from your input source.
+    # For instance, if you have a local image file for testing:
+    # with open("path/to/your/image.jpg", "rb") as image_file:
+    #     encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+
+    # For now, we'll use a dummy base64 string for demonstration if no image is available.
+    dummy_image_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" # A 1x1 transparent PNG
+    encoded_string = dummy_image_b64
+
     print("Simulating image classification...")
-    classification_result = classify_image_backend(dummy_image_b64)
-    
+    classification_result = classify_image_backend(encoded_string)
+
     if classification_result["waste_category"] != "error":
         object_name = classification_result["object_name"]
         confidence = classification_result["confidence"]
@@ -140,4 +153,4 @@ if __name__ == '__main__':
         print("\nSimulating export to CSV...")
         export_to_csv(object_name, confidence, waste_category, price)
     else:
-        print("Classification failed for dummy image.")
+        print("Classification failed for the simulated image.")
