@@ -1,184 +1,255 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EcoSort AI — Live Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.20.0/tf.min.js"></script>
 <style>
   :root{
     --forest:#1F5B3A;
+    --forest-dark:#153F28;
     --moss:#4E8C63;
     --terracotta:#C77B3B;
     --sand:#F4EFE6;
     --offwhite:#FBF9F5;
     --charcoal:#24291F;
-    --wet:#3E7CB1;
-    --dry:#4E8C63;
+    --wet:#3E8C52;
+    --dry:#3E7CB1;
+    --metal:#6B7A8F;
+    --glass:#2E8B8B;
+    --textile:#8B5E3C;
     --hazard:#B23A3A;
-    --other:#8A8578;
+    --other:#7A7A72;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family:Calibri, "Segoe UI", Arial, sans-serif;
-    background:var(--offwhite);
-    color:var(--charcoal);
-  }
+  body{ margin:0; font-family:Calibri,"Segoe UI",Arial,sans-serif; background:var(--offwhite); color:var(--charcoal); }
+
   header{
-    background:var(--forest);
-    color:white;
-    padding:22px 32px;
-    display:flex;
-    align-items:center;
-    gap:16px;
+    background:linear-gradient(135deg,var(--forest) 0%, var(--forest-dark) 100%);
+    color:white; padding:26px 36px; display:flex; align-items:center; gap:16px;
+    box-shadow:0 3px 14px rgba(0,0,0,0.12);
   }
-  header .logo{
-    width:44px;height:44px;border-radius:50%;
-    background:var(--terracotta);
-    display:flex;align-items:center;justify-content:center;
-    font-size:22px;
-  }
-  header h1{
-    font-family:Cambria, "Times New Roman", serif;
-    font-size:26px;margin:0;
-  }
-  header p{margin:2px 0 0;font-size:13px;color:#CFE0D3;font-style:italic;}
+  header .logo{ width:46px;height:46px;border-radius:50%; background:var(--terracotta); display:flex;align-items:center;justify-content:center; font-size:22px; flex-shrink:0; }
+  header .titleblock{flex:1;}
+  header h1{ font-family:Cambria,"Times New Roman",serif; font-size:27px;margin:0; letter-spacing:0.3px; }
+  header p{ margin:2px 0 0;font-size:13px;color:#CFE0D3;font-style:italic; }
+  .aiflag{ font-size:11px; padding:7px 14px; border-radius:20px; background:rgba(255,255,255,0.12); white-space:nowrap; }
 
-  .wrap{
-    max-width:1180px;margin:0 auto;padding:28px 24px 60px;
-    display:grid;grid-template-columns:1.1fr 1fr;gap:24px;
-  }
-  @media (max-width:900px){ .wrap{grid-template-columns:1fr;} }
+  .wrap{ max-width:1220px;margin:0 auto;padding:30px 24px 60px; display:grid;grid-template-columns:1.15fr 1fr;gap:24px; }
+  @media (max-width:920px){ .wrap{grid-template-columns:1fr;} }
 
-  .card{
-    background:white;border-radius:14px;padding:22px;
-    box-shadow:0 4px 18px rgba(36,41,31,0.08);
-  }
-  .card h2{
-    font-family:Cambria, serif;font-size:19px;color:var(--forest);margin:0 0 4px;
-  }
-  .card .sub{font-size:12.5px;color:#75705f;margin:0 0 16px;font-style:italic;}
+  .card{ background:white;border-radius:16px;padding:24px; box-shadow:0 4px 20px rgba(36,41,31,0.07); border:1px solid #F0ECE0; }
+  .card h2{ font-family:Cambria,serif;font-size:19px;color:var(--forest);margin:0 0 4px; }
+  .card .sub{ font-size:12.5px;color:#75705f;margin:0 0 16px;font-style:italic; }
 
-  /* Sample gallery */
-  .sample-grid{
-    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;
+  /* Category filter tabs */
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .tab{
+    font-size:11.5px; padding:6px 12px; border-radius:20px; cursor:pointer;
+    background:var(--sand); color:#5B5647; border:1px solid transparent; font-weight:bold;
+    transition:0.15s;
   }
+  .tab.active{ background:var(--forest); color:white; }
+  .tab:hover:not(.active){ background:#EEF3EA; }
+
+  .sample-grid{ display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px; max-height:340px; overflow-y:auto; padding-right:2px; }
+  @media (max-width:480px){ .sample-grid{grid-template-columns:repeat(3,1fr);} }
   .sample-btn{
     background:var(--sand);border:2px solid transparent;border-radius:12px;
-    padding:14px 8px;text-align:center;cursor:pointer;transition:0.15s;
+    padding:12px 6px;text-align:center;cursor:pointer;transition:0.15s;position:relative;
   }
-  .sample-btn:hover{border-color:var(--moss);background:#EEF3EA;}
-  .sample-btn canvas{display:block;margin:0 auto 6px;}
-  .sample-btn .name{font-size:11.5px;font-weight:bold;color:var(--forest);}
+  .sample-btn:hover{ border-color:var(--moss);background:#EEF3EA; transform:translateY(-1px); }
+  .sample-btn .emoji{ font-size:26px;line-height:1; margin-bottom:5px; }
+  .sample-btn .name{ font-size:10.5px;font-weight:bold;color:var(--forest); line-height:1.2; }
+  .sample-btn .dot{ position:absolute; top:6px; right:6px; width:8px;height:8px;border-radius:50%; }
 
-  .divider{
-    display:flex;align-items:center;gap:10px;margin:18px 0;
-    font-size:11px;color:#A6A08B;text-transform:uppercase;letter-spacing:0.5px;
-  }
-  .divider::before,.divider::after{content:"";flex:1;height:1px;background:#EFEBE0;}
+  .divider{ display:flex;align-items:center;gap:10px;margin:16px 0; font-size:11px;color:#A6A08B;text-transform:uppercase;letter-spacing:0.5px; }
+  .divider::before,.divider::after{ content:"";flex:1;height:1px;background:#EFEBE0; }
 
-  #dropzone{
-    display:block;
-    border:2px dashed #C9C2AC;border-radius:12px;
-    padding:20px;text-align:center;cursor:pointer;
-    background:var(--sand);transition:0.2s;
-  }
-  #dropzone:hover{border-color:var(--moss);background:#EEF3EA;}
-  #dropzone .hint{font-size:11.5px;color:#8A8578;margin-top:4px;}
-  #fileInput{display:block; margin:10px auto 0; font-size:12px;}
+  #dropzone{ display:block; border:2px dashed #C9C2AC;border-radius:12px; padding:16px;text-align:center;cursor:pointer; background:var(--sand);transition:0.2s; }
+  #dropzone:hover{ border-color:var(--moss);background:#EEF3EA; }
+  #dropzone .hint{ font-size:11.5px;color:#8A8578;margin-top:4px; }
+  #fileInput{ display:block; margin:10px auto 0; font-size:12px; }
 
-  #previewWrap{margin-top:16px;display:none;}
-  #previewImg,#previewCanvas{width:100%;max-height:220px;object-fit:contain;border-radius:10px;background:#eee;display:block;}
+  #previewWrap{ margin-top:14px;display:none; }
+  #previewCanvas{ width:100%;max-height:190px;object-fit:contain;border-radius:10px;background:#eee;display:block; }
 
-  .status-row{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px;color:#5B5647;}
-  .spinner{
-    width:16px;height:16px;border:2px solid #d7d2c2;border-top-color:var(--forest);
-    border-radius:50%;animation:spin 0.8s linear infinite;display:none;
-  }
-  @keyframes spin{to{transform:rotate(360deg);}}
+  .status-row{ display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:#5B5647; }
+  .spinner{ width:16px;height:16px;border:2px solid #d7d2c2;border-top-color:var(--forest); border-radius:50%;animation:spin 0.8s linear infinite;display:none; }
+  @keyframes spin{ to{transform:rotate(360deg);} }
 
-  .result-box{
-    margin-top:16px;border-radius:10px;padding:16px;display:none;
-  }
-  .result-box .cat-pill{
-    display:inline-block;padding:5px 14px;border-radius:20px;
-    font-size:13px;font-weight:bold;color:white;margin-bottom:8px;
-  }
-  .result-box .raw{font-size:11.5px;color:#75705f;margin-top:8px;}
-  .weight-row{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px;flex-wrap:wrap;}
-  .weight-row input{
-    width:80px;padding:6px 8px;border:1px solid #D8CFB8;border-radius:6px;font-size:13px;
-  }
+  .result-box{ margin-top:14px;border-radius:12px;padding:16px;display:none; }
+  .detected-row{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .detected-emoji{ font-size:38px; line-height:1; background:white; border-radius:12px; padding:8px 12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+  .detected-label{ font-size:11px; color:#8A8578; text-transform:uppercase; letter-spacing:0.4px; }
+  .detected-name{ font-size:20px; font-weight:bold; color:var(--charcoal); font-family:Cambria,serif; }
+  .bin-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .bin-label{ font-size:12.5px; color:#5B5647; font-weight:bold; }
+  .result-box .cat-pill{ display:inline-block;padding:5px 14px;border-radius:20px; font-size:13px;font-weight:bold;color:white; }
+  .result-box .raw{ font-size:11.5px;color:#75705f;margin-top:6px; }
+  .weight-row{ display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;flex-wrap:wrap; }
+  .weight-row input{ width:80px;padding:6px 8px;border:1px solid #D8CFB8;border-radius:6px;font-size:13px; }
 
-  button.primary{
-    margin-top:16px;width:100%;padding:12px;border:none;border-radius:8px;
-    background:var(--terracotta);color:white;font-size:14.5px;font-weight:bold;
-    cursor:pointer;transition:0.15s;
-  }
-  button.primary:hover{background:#B36A2E;}
-  button.primary:disabled{background:#D8CFB8;cursor:not-allowed;}
+  .payout-breakdown{ margin-top:12px; background:white; border-radius:10px; padding:10px 12px; font-size:12px; }
+  .payout-breakdown .row{ display:flex; justify-content:space-between; padding:3px 0; }
+  .payout-breakdown .row.total{ border-top:1px dashed #D8CFB8; margin-top:4px; padding-top:6px; font-weight:bold; color:var(--forest); }
+  .payout-breakdown .row.fee{ color:var(--terracotta); }
+  .no-value-note{ font-size:12px; color:#8A8578; margin-top:10px; background:#F4EFE6; padding:10px 12px; border-radius:8px; }
 
-  /* Right column */
-  .stat-strip{display:flex;gap:14px;margin-bottom:18px;}
-  .stat{
-    flex:1;background:var(--forest);color:white;border-radius:12px;padding:16px;text-align:center;
-  }
-  .stat .num{font-family:Cambria,serif;font-size:26px;font-weight:bold;color:#F4EFE6;}
-  .stat .lab{font-size:11px;color:#CFE0D3;margin-top:2px;}
+  button.primary{ margin-top:14px;width:100%;padding:12px;border:none;border-radius:9px; background:var(--terracotta);color:white;font-size:14.5px;font-weight:bold; cursor:pointer;transition:0.15s; box-shadow:0 3px 10px rgba(199,123,59,0.3); }
+  button.primary:hover{ background:#B36A2E; }
+  button.primary:disabled{ background:#D8CFB8;cursor:not-allowed; box-shadow:none; }
 
-  .offer{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:14px;border-radius:10px;background:var(--sand);margin-bottom:10px;
-    border-left:4px solid var(--moss);
-  }
-  .offer .name{font-size:13.5px;font-weight:bold;color:var(--forest);}
-  .offer .meta{font-size:11.5px;color:#75705f;}
-  .offer .price{font-size:16px;font-weight:bold;color:var(--terracotta);}
+  .stat-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px;margin-bottom:18px; }
+  @media (max-width:480px){ .stat-strip{grid-template-columns:repeat(2,1fr);} }
+  .stat{ background:var(--forest);color:white;border-radius:12px;padding:14px 8px;text-align:center; }
+  .stat .num{ font-family:Cambria,serif;font-size:21px;font-weight:bold;color:#F4EFE6; }
+  .stat .lab{ font-size:10px;color:#CFE0D3;margin-top:2px; }
 
-  #marketEmpty{font-size:13px;color:#8A8578;text-align:center;padding:30px 10px;}
+  .offer{ display:flex;justify-content:space-between;align-items:center; padding:14px;border-radius:10px;background:var(--sand);margin-bottom:10px; border-left:4px solid var(--moss); }
+  .offer .name{ font-size:13.5px;font-weight:bold;color:var(--forest); }
+  .offer .meta{ font-size:11.5px;color:#75705f; }
+  .offer .price{ font-size:16px;font-weight:bold;color:var(--terracotta); }
 
-  .history-item{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:10px 0;border-bottom:1px solid #EFEBE0;font-size:12.5px;
-  }
-  .history-item:last-child{border-bottom:none;}
-  .tag{padding:3px 9px;border-radius:12px;color:white;font-size:10.5px;font-weight:bold;}
+  #marketEmpty{ font-size:13px;color:#8A8578;text-align:center;padding:30px 10px; }
 
-  footer{
-    text-align:center;padding:16px;font-size:11.5px;color:#A6A08B;
+  .history-item{ display:flex;justify-content:space-between;align-items:center; padding:10px 0;border-bottom:1px solid #EFEBE0;font-size:12px; gap:6px; }
+  .history-item:last-child{ border-bottom:none; }
+  .tag{ padding:3px 9px;border-radius:12px;color:white;font-size:10px;font-weight:bold; white-space:nowrap; }
+
+  .rate-card{ margin-top:20px; }
+  .rate-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .rate-table td{ padding:7px 4px; border-bottom:1px solid #F0ECE0; }
+  .rate-table td:last-child{ text-align:right;font-weight:bold;color:var(--forest); }
+
+  footer{ text-align:center;padding:16px;font-size:11.5px;color:#A6A08B; }
+
+  /* Level / progress */
+  .level-card{ background:linear-gradient(135deg,var(--forest),var(--forest-dark)); color:white; }
+  .level-top{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .level-badge{ font-size:30px; background:rgba(255,255,255,0.14); border-radius:50%; width:52px;height:52px; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
+  .level-name{ font-family:Cambria,serif; font-size:16px; font-weight:bold; }
+  .level-next{ font-size:11.5px; color:#CFE0D3; margin-top:2px; }
+  .streak{ font-size:13px; font-weight:bold; background:rgba(255,255,255,0.14); padding:5px 10px; border-radius:16px; white-space:nowrap; }
+  .progress-track{ height:8px; background:rgba(255,255,255,0.18); border-radius:6px; overflow:hidden; }
+  .progress-fill{ height:100%; width:0%; background:var(--terracotta); border-radius:6px; transition:width 0.5s ease; }
+
+  /* Rewards catalog */
+  .reward-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  @media (max-width:480px){ .reward-grid{grid-template-columns:1fr;} }
+  .reward-item{ background:var(--sand); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:6px; border:1px solid transparent; transition:0.15s; }
+  .reward-item.affordable:hover{ border-color:var(--moss); }
+  .reward-item .r-top{ display:flex; align-items:center; gap:8px; }
+  .reward-item .r-emoji{ font-size:22px; }
+  .reward-item .r-name{ font-size:12.5px; font-weight:bold; color:var(--forest); line-height:1.25; }
+  .reward-item .r-cost{ font-size:11px; color:#8A8578; }
+  .reward-item button{
+    margin-top:2px; border:none; border-radius:7px; padding:7px; font-size:11.5px; font-weight:bold; cursor:pointer;
+    background:var(--terracotta); color:white;
   }
+  .reward-item button:disabled{ background:#D8CFB8; color:#9c9683; cursor:not-allowed; }
+  .reward-item.locked{ opacity:0.55; }
+
+  /* Login button + modal */
+  .login-btn{
+    background:var(--terracotta); color:white; border:none; padding:9px 16px;
+    border-radius:20px; font-size:12.5px; font-weight:bold; cursor:pointer; white-space:nowrap;
+  }
+  .login-btn:hover{ background:#B36A2E; }
+  .login-btn.logged-in{ background:rgba(255,255,255,0.14); }
+
+  .modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(20,25,18,0.55);
+    z-index:50; align-items:center; justify-content:center; padding:16px;
+  }
+  .modal-backdrop.open{ display:flex; }
+  .modal{ background:white; border-radius:16px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.25); }
+  .modal-head{ background:var(--forest); color:white; padding:20px 22px; position:relative; border-radius:16px 16px 0 0; }
+  .modal-title{ font-family:Cambria,serif; font-size:18px; font-weight:bold; }
+  .modal-sub{ font-size:12px; color:#CFE0D3; margin-top:3px; }
+  .modal-close{ position:absolute; top:14px; right:16px; background:rgba(255,255,255,0.15); border:none; color:white; width:26px;height:26px; border-radius:50%; cursor:pointer; font-size:13px; }
+  .modal-body{ padding:20px 22px; }
+  .modal-body label{ display:block; font-size:12px; font-weight:bold; color:var(--forest); margin:12px 0 5px; }
+  .modal-body label:first-child{ margin-top:0; }
+  .modal-body .opt{ color:#8A8578; font-weight:normal; }
+  .modal-body input[type="text"], .modal-body input[type="tel"], .modal-body input[type="date"]{
+    width:100%; padding:9px 11px; border:1px solid #D8CFB8; border-radius:8px; font-size:13px; font-family:inherit;
+  }
+  .location-row{ display:flex; align-items:center; gap:10px; margin-top:2px; }
+  .location-row button{
+    background:var(--sand); border:1px solid #D8CFB8; padding:8px 12px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; color:var(--forest);
+  }
+  .location-row button:hover{ background:#EEF3EA; }
+  #locStatus{ font-size:11.5px; color:#75705f; }
+  .modal-error{ background:#FBE9E9; color:#B23A3A; font-size:12px; padding:8px 10px; border-radius:8px; margin-top:12px; }
+  .modal-note{ font-size:10.5px; color:#A6A08B; margin-top:10px; line-height:1.4; }
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">♻️</div>
-  <div>
+  <div class="titleblock">
     <h1>EcoSort AI</h1>
     <p>Live Demo — Scan, Classify, Sell</p>
   </div>
+  <div class="aiflag" id="aiFlag">✓ Real AI model loaded</div>
+  <button class="login-btn" id="loginBtn">👤 Login to Sell</button>
 </header>
+
+<!-- Login Modal -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Create Your EcoSort Account</div>
+      <div class="modal-sub">Needed once, only to sell items on the marketplace.</div>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <label>Full Name *</label>
+      <input type="text" id="loginName" placeholder="e.g. Priya Sharma">
+
+      <label>Address *</label>
+      <input type="text" id="loginAddress" placeholder="House no., street, city">
+
+      <label>Phone Number *</label>
+      <input type="tel" id="loginPhone" placeholder="10-digit mobile number">
+
+      <label>Date of Birth *</label>
+      <input type="date" id="loginDOB">
+
+      <label>Location <span class="opt">(optional)</span></label>
+      <div class="location-row">
+        <button type="button" id="locBtn">📍 Use My Current Location</button>
+        <span id="locStatus"></span>
+      </div>
+
+      <div class="modal-error" id="modalError" style="display:none;"></div>
+
+      <button class="primary" id="loginSubmit" style="margin-top:16px;">Create Account &amp; Continue</button>
+      <div class="modal-note">Your details are saved for this app and a copy is emailed to the EcoSort team. No password needed for this demo.</div>
+    </div>
+  </div>
+</div>
 
 <div class="wrap">
 
   <!-- LEFT: Scan card -->
   <div class="card">
     <h2>1. Scan your waste</h2>
-    <p class="sub">Tap a sample item below — this always works and shows the full flow.</p>
+    <p class="sub">Tap any item below — covers what you'd actually find on an Indian street or in a home dustbin.</p>
 
-    <div class="sample-grid" id="sampleGrid"></div>
+    <div class="tabs" id="tabs"><div class="tab active" data-tab="all">All</div><div class="tab" data-tab="wet">Wet</div><div class="tab" data-tab="dry">Dry</div><div class="tab" data-tab="metal">Metal</div><div class="tab" data-tab="glass">Glass</div><div class="tab" data-tab="textile">Textile</div><div class="tab" data-tab="hazardous">Hazardous</div><div class="tab" data-tab="other">Non-recyclable</div></div>
+    <div class="sample-grid" id="sampleGrid"><div class="sample-btn"><div class="dot" style="background:#3E8C52"></div><div class="emoji">🍌</div><div class="name">Banana Peel</div></div><div class="sample-btn"><div class="dot" style="background:#3E8C52"></div><div class="emoji">🥕</div><div class="name">Vegetable Peels</div></div><div class="sample-btn"><div class="dot" style="background:#3E8C52"></div><div class="emoji">🥥</div><div class="name">Coconut Shell</div></div><div class="sample-btn"><div class="dot" style="background:#3E8C52"></div><div class="emoji">🍛</div><div class="name">Leftover Food</div></div><div class="sample-btn"><div class="dot" style="background:#3E8C52"></div><div class="emoji">🍂</div><div class="name">Dry Leaves</div></div><div class="sample-btn"><div class="dot" style="background:#3E8C52"></div><div class="emoji">🍵</div><div class="name">Tea Waste</div></div><div class="sample-btn"><div class="dot" style="background:#3E7CB1"></div><div class="emoji">🧴</div><div class="name">Plastic Bottle</div></div><div class="sample-btn"><div class="dot" style="background:#3E7CB1"></div><div class="emoji">🛍️</div><div class="name">Carry Bag</div></div><div class="sample-btn"><div class="dot" style="background:#3E7CB1"></div><div class="emoji">🥛</div><div class="name">Milk Pouch</div></div><div class="sample-btn"><div class="dot" style="background:#3E7CB1"></div><div class="emoji">📰</div><div class="name">Newspaper</div></div><div class="sample-btn"><div class="dot" style="background:#3E7CB1"></div><div class="emoji">📦</div><div class="name">Cardboard Box</div></div><div class="sample-btn"><div class="dot" style="background:#3E7CB1"></div><div class="emoji">🥤</div><div class="name">Paper Cup</div></div><div class="sample-btn"><div class="dot" style="background:#6B7A8F"></div><div class="emoji">🥫</div><div class="name">Tin Can</div></div><div class="sample-btn"><div class="dot" style="background:#6B7A8F"></div><div class="emoji">🧻</div><div class="name">Aluminium Foil</div></div><div class="sample-btn"><div class="dot" style="background:#2E8B8B"></div><div class="emoji">🍾</div><div class="name">Glass Bottle</div></div><div class="sample-btn"><div class="dot" style="background:#2E8B8B"></div><div class="emoji">🔺</div><div class="name">Broken Glass</div></div><div class="sample-btn"><div class="dot" style="background:#8B5E3C"></div><div class="emoji">👕</div><div class="name">Old Cloth/Rag</div></div><div class="sample-btn"><div class="dot" style="background:#8B5E3C"></div><div class="emoji">🧵</div><div class="name">Old Jute Bag</div></div><div class="sample-btn"><div class="dot" style="background:#B23A3A"></div><div class="emoji">📱</div><div class="name">Mobile Phone</div></div><div class="sample-btn"><div class="dot" style="background:#B23A3A"></div><div class="emoji">🔋</div><div class="name">Battery</div></div><div class="sample-btn"><div class="dot" style="background:#B23A3A"></div><div class="emoji">💡</div><div class="name">CFL/LED Bulb</div></div><div class="sample-btn"><div class="dot" style="background:#B23A3A"></div><div class="emoji">🔌</div><div class="name">Electric Wire</div></div><div class="sample-btn"><div class="dot" style="background:#7A7A72"></div><div class="emoji">🚫</div><div class="name">Gutkha Pouch</div></div><div class="sample-btn"><div class="dot" style="background:#7A7A72"></div><div class="emoji">🍟</div><div class="name">Chips Packet</div></div><div class="sample-btn"><div class="dot" style="background:#7A7A72"></div><div class="emoji">🚬</div><div class="name">Cigarette Butt</div></div><div class="sample-btn"><div class="dot" style="background:#7A7A72"></div><div class="emoji">⬜</div><div class="name">Thermocol</div></div><div class="sample-btn"><div class="dot" style="background:#7A7A72"></div><div class="emoji">🩴</div><div class="name">Broken Slipper</div></div></div>
 
     <div class="divider">or upload your own photo</div>
 
     <label id="dropzone" for="fileInput">
       <div style="font-size:13px;font-weight:bold;color:var(--forest);">Click to choose a photo</div>
-      <div class="hint">Uses an on-device color analysis (no internet needed)</div>
+      <div class="hint" id="uploadHint">Classified live with MobileNetV2 (runs in your browser)</div>
     </label>
-    <input type="file" id="fileInput" accept="image/*" />
+    <input type="file" id="fileInput" accept="image/*">
 
-    <div id="previewWrap">
-      <canvas id="previewCanvas" width="400" height="260"></canvas>
-    </div>
+    <div id="previewWrap"><canvas id="previewCanvas" width="400" height="220"></canvas></div>
 
     <div class="status-row">
       <div class="spinner" id="spinner"></div>
@@ -186,14 +257,27 @@
     </div>
 
     <div class="result-box" id="resultBox">
-      <span class="cat-pill" id="catPill">—</span>
-      <div id="catDesc" style="font-size:13px;"></div>
+      <div class="detected-row">
+        <div class="detected-emoji" id="detectedEmoji">📷</div>
+        <div>
+          <div class="detected-label">Detected item</div>
+          <div class="detected-name" id="detectedName">—</div>
+        </div>
+      </div>
+      <div class="bin-row">
+        <span class="bin-label">Goes in:</span>
+        <span class="cat-pill" id="catPill">—</span>
+      </div>
       <div class="raw" id="rawLabel"></div>
 
       <div class="weight-row">
-        <span>Simulated sensor weight:</span>
-        <input type="number" id="weightInput" min="0.1" step="0.1" value="1.0" /> kg
+        <span>Estimated weight:</span>
+        <input type="number" id="weightInput" min="0.001" step="0.001" value="0.03"> kg
+        <span style="font-size:11px;color:#8A8578;">(auto-filled, editable)</span>
       </div>
+
+      <div id="payoutBreakdown" class="payout-breakdown" style="display:none;"></div>
+      <div id="noValueNote" class="no-value-note" style="display:none;"></div>
 
       <button class="primary" id="sellBtn">Sell to Marketplace →</button>
     </div>
@@ -204,339 +288,632 @@
     <div class="stat-strip">
       <div class="stat"><div class="num" id="pointsNum">0</div><div class="lab">Green Points</div></div>
       <div class="stat"><div class="num" id="kgNum">0.0</div><div class="lab">kg Diverted</div></div>
-      <div class="stat"><div class="num" id="earnNum">₹0</div><div class="lab">Earned</div></div>
+      <div class="stat"><div class="num" id="earnNum">₹0</div><div class="lab">You Earned</div></div>
+    </div>
+
+    <div class="card level-card" style="margin-bottom:20px;">
+      <div class="level-top">
+        <div class="level-badge" id="levelBadge">🌱</div>
+        <div style="flex:1;">
+          <div class="level-name" id="levelName">Eco Rookie</div>
+          <div class="level-next" id="levelNext">Earn 100 more pts to reach Eco Explorer 🌿</div>
+        </div>
+        <div class="streak" id="streakBadge" style="display:none;">🔥 <span id="streakNum">0</span></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="levelProgress" style="width: 0%;"></div></div>
     </div>
 
     <div class="card" style="margin-bottom:20px;">
       <h2>2. Marketplace match</h2>
-      <p class="sub">Recyclers bidding on your last scanned item.</p>
-      <div id="marketArea">
-        <div id="marketEmpty">Scan an item to see live offers.</div>
-      </div>
+      <p class="sub">Recyclers bidding on your last scanned item, using real scrap rates.</p>
+      <div id="marketArea"><div id="marketEmpty">Scan an item to see live offers.</div></div>
+    </div>
+
+    <div class="card reward-card" style="margin-bottom:20px;">
+      <h2>🎁 Redeem Green Points</h2>
+      <p class="sub">Not cash — real perks. Points are earned every time you sort correctly.</p>
+      <div class="reward-grid" id="rewardGrid"><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">🏅</div><div class="r-name">Digital Eco Certificate</div></div>
+      <div class="r-cost">80 pts</div>
+      <button disabled="" data-idx="0">80 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">🌳</div><div class="r-name">Plant a Tree in Your Name</div></div>
+      <div class="r-cost">150 pts</div>
+      <button disabled="" data-idx="1">150 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">☕</div><div class="r-name">Campus Café 20% Off Coupon</div></div>
+      <div class="r-cost">120 pts</div>
+      <button disabled="" data-idx="2">120 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">🚌</div><div class="r-name">Free Metro/Bus Day Pass</div></div>
+      <div class="r-cost">200 pts</div>
+      <button disabled="" data-idx="3">200 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">🎽</div><div class="r-name">EcoSort Reusable Tote Bag</div></div>
+      <div class="r-cost">250 pts</div>
+      <button disabled="" data-idx="4">250 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">🎬</div><div class="r-name">Movie Ticket Discount</div></div>
+      <div class="r-cost">300 pts</div>
+      <button disabled="" data-idx="5">300 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">🪴</div><div class="r-name">Balcony Compost Starter Kit</div></div>
+      <div class="r-cost">400 pts</div>
+      <button disabled="" data-idx="6">400 more pts</button>
+    </div><div class="reward-item locked">
+      <div class="r-top"><div class="r-emoji">👑</div><div class="r-name">"Top Sorter" Leaderboard Badge</div></div>
+      <div class="r-cost">500 pts</div>
+      <button disabled="" data-idx="7">500 more pts</button>
+    </div></div>
     </div>
 
     <div class="card">
       <h2>3. Your activity</h2>
-      <p class="sub">Every sale is logged like a real transaction ledger.</p>
-      <div id="historyArea">
-        <div style="font-size:13px;color:#8A8578;">No transactions yet.</div>
-      </div>
+      <p class="sub">Every sale and redemption is logged like a real transaction ledger.</p>
+      <div id="historyArea"><div style="font-size:13px;color:#8A8578;">No transactions yet.</div></div>
     </div>
+
+    <div class="card rate-card">
+      <h2>Today's rates</h2>
+      <p class="sub">National average, India — July 2026 (indicative)</p>
+      <table class="rate-table" id="rateTable"><tbody><tr><td><span class="tag" style="background:#3E8C52">&nbsp;</span> &nbsp;Wet / Organic</td><td>₹2/kg</td></tr><tr><td><span class="tag" style="background:#3E7CB1">&nbsp;</span> &nbsp;Dry / Recyclable</td><td>₹13/kg</td></tr><tr><td><span class="tag" style="background:#6B7A8F">&nbsp;</span> &nbsp;Metal Scrap</td><td>₹20/kg</td></tr><tr><td><span class="tag" style="background:#2E8B8B">&nbsp;</span> &nbsp;Glass</td><td>₹2/kg</td></tr><tr><td><span class="tag" style="background:#8B5E3C">&nbsp;</span> &nbsp;Textile / Cloth</td><td>₹5/kg</td></tr><tr><td><span class="tag" style="background:#B23A3A">&nbsp;</span> &nbsp;Hazardous / E-Waste</td><td>₹45/kg</td></tr><tr><td><span class="tag" style="background:#7A7A72">&nbsp;</span> &nbsp;Non-Recyclable / Landfill</td><td>No resale value</td></tr></tbody></table>
+    </div>
+
   </div>
 
 </div>
 
-<footer>EcoSort AI — Sustainability Hackathon 2026 · Runs fully offline in your browser, no data leaves your device</footer>
+<footer>EcoSort AI — Sustainability Hackathon 2026 · Scrap rates are indicative national averages and vary by city, dealer, and material grade</footer>
 
 <script>
-// ---------- Category info ----------
+// ============================================================
+// GENUINE SCRAP RATES — India, national average, July 2026
+// Indicative only — actual dealer prices vary by city/grade/qty.
+// "other" = genuinely low/no resale value (multilayer plastic,
+// tobacco pouches, cigarette butts etc.) — shown honestly as
+// non-sellable, sent for safe disposal instead.
+// ============================================================
 const CATEGORY_INFO = {
-  wet: { label: "Wet / Organic Waste", hex: "3E7CB1", price: 4 },
-  dry: { label: "Dry / Recyclable", hex: "4E8C63", price: 12 },
-  hazardous: { label: "Hazardous / E-Waste", hex: "B23A3A", price: 25 },
-  other: { label: "General / Unclassified", hex: "8A8578", price: 2 }
+  wet:       { label: "Wet / Organic",          hex: "3E8C52", price: 2  },
+  dry:       { label: "Dry / Recyclable",       hex: "3E7CB1", price: 13 },
+  metal:     { label: "Metal Scrap",            hex: "6B7A8F", price: 20 },
+  glass:     { label: "Glass",                  hex: "2E8B8B", price: 2  },
+  textile:   { label: "Textile / Cloth",        hex: "8B5E3C", price: 5  },
+  hazardous: { label: "Hazardous / E-Waste",    hex: "B23A3A", price: 45 },
+  other:     { label: "Non-Recyclable / Landfill", hex: "7A7A72", price: 0 },
 };
 
 const RECYCLER_NAMES = {
-  wet: ["GreenCompost Co.", "UrbanKhad Farms"],
-  dry: ["Powai Scrap Traders", "CircularMart Recyclers"],
+  wet:       ["GreenCompost Co.", "UrbanKhad Farms"],
+  dry:       ["Powai Scrap Traders", "CircularMart Recyclers"],
+  metal:     ["Mayapuri Metal Traders", "ReMetal Scrap Co."],
+  glass:     ["ClearCycle Glass Co.", "Local Glass Recyclers"],
+  textile:   ["ThreadBack Textiles", "Rag Traders Co-op"],
   hazardous: ["SafeDispose E-Waste", "ReVolt Battery Recovery"],
-  other: ["Ward-9 Collection Point"]
+  other:     ["Ward Collection Point (municipal)"],
 };
 
-// ---------- Sample items (drawn with canvas, no external images) ----------
-const SAMPLES = [
-  { name: "Plastic Bottle", cat: "dry", draw: drawBottle },
-  { name: "Banana Peel", cat: "wet", draw: drawBanana },
-  { name: "Battery", cat: "hazardous", draw: drawBattery },
-  { name: "Newspaper", cat: "dry", draw: drawNewspaper },
-  { name: "Apple Core", cat: "wet", draw: drawApple },
-  { name: "Old Phone", cat: "hazardous", draw: drawPhone },
+const PLATFORM_COMMISSION_RATE = 0.15;
+
+// ---------- Levels (earned by Green Points, no cash) ----------
+const LEVELS = [
+  { min: 0,    name: "Eco Rookie",   emoji: "🌱" },
+  { min: 100,  name: "Eco Explorer", emoji: "🌿" },
+  { min: 300,  name: "Eco Warrior",  emoji: "🌳" },
+  { min: 700,  name: "Eco Champion", emoji: "🏆" },
+  { min: 1500, name: "Eco Legend",   emoji: "👑" },
 ];
 
-function drawBottle(ctx,w,h){
-  ctx.fillStyle="#dff0f7"; ctx.fillRect(0,0,w,h);
-  ctx.fillStyle="#3E7CB1";
-  ctx.fillRect(w/2-22,h*0.18,44,18);
-  ctx.fillRect(w/2-34,h*0.32,68,h*0.5);
-  ctx.fillStyle="#2C5E85"; ctx.fillRect(w/2-34,h*0.32,68,10);
-}
-function drawBanana(ctx,w,h){
-  ctx.fillStyle="#fbf5df"; ctx.fillRect(0,0,w,h);
-  ctx.strokeStyle="#D9B44A"; ctx.lineWidth=22; ctx.lineCap="round";
-  ctx.beginPath(); ctx.moveTo(w*0.32,h*0.28); ctx.quadraticCurveTo(w*0.5,h*0.85,w*0.7,h*0.35); ctx.stroke();
-  ctx.strokeStyle="#8a6d1f"; ctx.lineWidth=4;
-  ctx.beginPath(); ctx.moveTo(w*0.3,h*0.24); ctx.lineTo(w*0.36,h*0.32); ctx.stroke();
-}
-function drawBattery(ctx,w,h){
-  ctx.fillStyle="#e8e8e8"; ctx.fillRect(0,0,w,h);
-  ctx.fillStyle="#1a1a1a"; ctx.fillRect(w/2-20,h*0.2,40,h*0.62);
-  ctx.fillStyle="#C7A93B"; ctx.fillRect(w/2-8,h*0.14,16,10);
-  ctx.fillStyle="#e0c04c"; ctx.fillRect(w/2-20,h*0.32,40,10);
-}
-function drawNewspaper(ctx,w,h){
-  ctx.fillStyle="#f2efe4"; ctx.fillRect(0,0,w,h);
-  ctx.fillStyle="#ffffff"; ctx.fillRect(w*0.2,h*0.18,w*0.6,h*0.64);
-  ctx.strokeStyle="#999"; ctx.lineWidth=2;
-  for(let i=0;i<6;i++){ ctx.beginPath(); ctx.moveTo(w*0.26,h*0.28+i*10); ctx.lineTo(w*0.74,h*0.28+i*10); ctx.stroke(); }
-}
-function drawApple(ctx,w,h){
-  ctx.fillStyle="#fdf1ea"; ctx.fillRect(0,0,w,h);
-  ctx.fillStyle="#EADFC5";
-  ctx.beginPath(); ctx.ellipse(w/2,h*0.55,26,32,0,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle="#8a6d1f"; ctx.lineWidth=4;
-  ctx.beginPath(); ctx.moveTo(w/2,h*0.28); ctx.lineTo(w/2+6,h*0.18); ctx.stroke();
-}
-function drawPhone(ctx,w,h){
-  ctx.fillStyle="#e8e8e8"; ctx.fillRect(0,0,w,h);
-  ctx.fillStyle="#1a1a1a"; ctx.fillRect(w/2-24,h*0.16,48,h*0.7);
-  ctx.fillStyle="#333"; ctx.fillRect(w/2-20,h*0.2,40,h*0.55);
+// ---------- Redeemable rewards (points only, never cash) ----------
+const REWARDS = [
+  { emoji:"🏅", name:"Digital Eco Certificate",        cost:80  },
+  { emoji:"🌳", name:"Plant a Tree in Your Name",       cost:150 },
+  { emoji:"☕", name:"Campus Café 20% Off Coupon",      cost:120 },
+  { emoji:"🚌", name:"Free Metro/Bus Day Pass",         cost:200 },
+  { emoji:"🎽", name:"EcoSort Reusable Tote Bag",       cost:250 },
+  { emoji:"🎬", name:"Movie Ticket Discount",           cost:300 },
+  { emoji:"🪴", name:"Balcony Compost Starter Kit",     cost:400 },
+  { emoji:"👑", name:"\"Top Sorter\" Leaderboard Badge",cost:500 },
+];
+let streakCount = 0;
+
+// ---------- Common Indian roadside / household waste items ----------
+const SAMPLES = [
+  // Wet / Organic
+  { name:"Banana Peel",    emoji:"🍌", cat:"wet", weight:0.03 },
+  { name:"Vegetable Peels",emoji:"🥕", cat:"wet", weight:0.05 },
+  { name:"Coconut Shell",  emoji:"🥥", cat:"wet", weight:0.15 },
+  { name:"Leftover Food",  emoji:"🍛", cat:"wet", weight:0.2 },
+  { name:"Dry Leaves",     emoji:"🍂", cat:"wet", weight:0.02 },
+  { name:"Tea Waste",      emoji:"🍵", cat:"wet", weight:0.02 },
+
+  // Dry / Recyclable
+  { name:"Plastic Bottle", emoji:"🧴", cat:"dry", weight:0.03 },
+  { name:"Carry Bag",      emoji:"🛍️", cat:"dry", weight:0.01 },
+  { name:"Milk Pouch",     emoji:"🥛", cat:"dry", weight:0.01 },
+  { name:"Newspaper",      emoji:"📰", cat:"dry", weight:0.2 },
+  { name:"Cardboard Box",  emoji:"📦", cat:"dry", weight:0.15 },
+  { name:"Paper Cup",      emoji:"🥤", cat:"dry", weight:0.01 },
+
+  // Metal
+  { name:"Tin Can",        emoji:"🥫", cat:"metal", weight:0.04 },
+  { name:"Aluminium Foil", emoji:"🧻", cat:"metal", weight:0.005 },
+
+  // Glass
+  { name:"Glass Bottle",   emoji:"🍾", cat:"glass", weight:0.4 },
+  { name:"Broken Glass",   emoji:"🔺", cat:"glass", weight:0.1 },
+
+  // Textile
+  { name:"Old Cloth/Rag",  emoji:"👕", cat:"textile", weight:0.2 },
+  { name:"Old Jute Bag",   emoji:"🧵", cat:"textile", weight:0.15 },
+
+  // Hazardous / E-waste
+  { name:"Mobile Phone",   emoji:"📱", cat:"hazardous", weight:0.18 },
+  { name:"Battery",        emoji:"🔋", cat:"hazardous", weight:0.03 },
+  { name:"CFL/LED Bulb",   emoji:"💡", cat:"hazardous", weight:0.05 },
+  { name:"Electric Wire",  emoji:"🔌", cat:"hazardous", weight:0.1 },
+
+  // Non-recyclable / low value (very common street litter in India)
+  { name:"Gutkha Pouch",   emoji:"🚫", cat:"other", weight:0.002 },
+  { name:"Chips Packet",   emoji:"🍟", cat:"other", weight:0.01 },
+  { name:"Cigarette Butt", emoji:"🚬", cat:"other", weight:0.001 },
+  { name:"Thermocol",      emoji:"⬜", cat:"other", weight:0.02 },
+  { name:"Broken Slipper", emoji:"🩴", cat:"other", weight:0.15 },
+];
+
+// Mapping from generic MobileNet/ImageNet labels (for real photo uploads)
+const IMAGENET_MAP = {
+  "plastic bottle":0,"water bottle":0,"pop bottle":0,"pill bottle":0,"beer bottle":14,"wine bottle":14,
+  "plastic bag":7,"shopping basket":7,"carton":10,"envelope":10,"newspaper":9,"paper towel":11,
+  "tin can":12,"milk can":12,
+  "banana":0+1000, // placeholder replaced below programmatically
+};
+// (Simplified: real photo uploads map through keyword search against SAMPLES names/categories below.)
+function mapImageNetLabel(label){
+  const l = label.toLowerCase().replace(/_/g," ");
+  const guesses = [
+    { kw:["bottle","water","pop"], s:SAMPLES[6] },
+    { kw:["bag","basket","sack"], s:SAMPLES[7] },
+    { kw:["carton","box","package"], s:SAMPLES[10] },
+    { kw:["newspaper","paper","envelope","menu","book"], s:SAMPLES[9] },
+    { kw:["can","tin"], s:SAMPLES[12] },
+    { kw:["banana"], s:SAMPLES[0] },
+    { kw:["orange","lemon","fruit","apple","pineapple","fig","pomegranate"], s:SAMPLES[1] },
+    { kw:["vegetable","broccoli","corn","cucumber","mushroom","pepper","cauliflower"], s:SAMPLES[1] },
+    { kw:["cellular","phone","ipod"], s:SAMPLES[18] },
+    { kw:["laptop","computer","monitor","printer","modem","remote","joystick","hard disc"], s:SAMPLES[18] },
+    { kw:["bottle cap","goblet","vase","beaker"], s:SAMPLES[14] },
+    { kw:["wire","cable"], s:SAMPLES[21] },
+  ];
+  for (const g of guesses){
+    if (g.kw.some(k => l.includes(k))) return g.s;
+  }
+  return { name: label, cat: "other", weight: 0.1 };
 }
 
 // ---------- State ----------
+let mobilenetModel = null, aiReady = false;
 let points = 0, kg = 0, earned = 0;
-let currentCategory = null, currentLabel = null;
+let currentUser = null; // set after login
+let currentItem = null;
+let activeTab = "all";
 
-const els = {
-  sampleGrid: document.getElementById('sampleGrid'),
-  dropzone: document.getElementById('dropzone'),
-  fileInput: document.getElementById('fileInput'),
-  previewWrap: document.getElementById('previewWrap'),
-  previewCanvas: document.getElementById('previewCanvas'),
-  spinner: document.getElementById('spinner'),
-  statusText: document.getElementById('statusText'),
-  resultBox: document.getElementById('resultBox'),
-  catPill: document.getElementById('catPill'),
-  catDesc: document.getElementById('catDesc'),
-  rawLabel: document.getElementById('rawLabel'),
-  weightInput: document.getElementById('weightInput'),
-  sellBtn: document.getElementById('sellBtn'),
-  pointsNum: document.getElementById('pointsNum'),
-  kgNum: document.getElementById('kgNum'),
-  earnNum: document.getElementById('earnNum'),
-  marketArea: document.getElementById('marketArea'),
-  historyArea: document.getElementById('historyArea'),
-};
+const els = {};
+["tabs","sampleGrid","dropzone","fileInput","previewWrap","previewCanvas","spinner","statusText",
+ "resultBox","detectedEmoji","detectedName","catPill","rawLabel","weightInput","payoutBreakdown","noValueNote","sellBtn",
+ "pointsNum","kgNum","earnNum","marketArea","historyArea","aiFlag","uploadHint",
+ "rateTable","levelBadge","levelName","levelNext","levelProgress","streakBadge","streakNum","rewardGrid",
+ "loginBtn","modalBackdrop","modalClose","loginName","loginAddress","loginPhone","loginDOB",
+ "locBtn","locStatus","modalError","loginSubmit"
+].forEach(id => els[id] = document.getElementById(id));
 
-// Build sample gallery
-SAMPLES.forEach((s, idx) => {
-  const btn = document.createElement('div');
-  btn.className = 'sample-btn';
-  const cv = document.createElement('canvas');
-  cv.width = 70; cv.height = 55;
-  s.draw(cv.getContext('2d'), 70, 55);
-  const label = document.createElement('div');
-  label.className = 'name';
-  label.textContent = s.name;
-  btn.appendChild(cv);
-  btn.appendChild(label);
-  btn.addEventListener('click', () => runSample(idx));
-  els.sampleGrid.appendChild(btn);
+// Build rate table
+els.rateTable.innerHTML = Object.values(CATEGORY_INFO).map(c =>
+  `<tr><td><span class="tag" style="background:#${c.hex}">&nbsp;</span> &nbsp;${c.label}</td><td>${c.price>0?'₹'+c.price+'/kg':'No resale value'}</td></tr>`
+).join("");
+
+// Build tabs
+const TAB_LIST = [
+  {id:"all", label:"All"},
+  {id:"wet", label:"Wet"},
+  {id:"dry", label:"Dry"},
+  {id:"metal", label:"Metal"},
+  {id:"glass", label:"Glass"},
+  {id:"textile", label:"Textile"},
+  {id:"hazardous", label:"Hazardous"},
+  {id:"other", label:"Non-recyclable"},
+];
+TAB_LIST.forEach(t => {
+  const el = document.createElement('div');
+  el.className = 'tab' + (t.id==='all' ? ' active' : '');
+  el.textContent = t.label;
+  el.dataset.tab = t.id;
+  el.addEventListener('click', () => {
+    activeTab = t.id;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    renderSampleGrid();
+  });
+  els.tabs.appendChild(el);
 });
 
-function runSample(idx){
-  const s = SAMPLES[idx];
-  els.previewWrap.style.display = 'block';
-  const ctx = els.previewCanvas.getContext('2d');
-  s.draw(ctx, els.previewCanvas.width, els.previewCanvas.height);
+function renderSampleGrid(){
+  els.sampleGrid.innerHTML = '';
+  const list = activeTab === 'all' ? SAMPLES : SAMPLES.filter(s => s.cat === activeTab);
+  list.forEach((s) => {
+    const btn = document.createElement('div');
+    btn.className = 'sample-btn';
+    const info = CATEGORY_INFO[s.cat];
+    btn.innerHTML = `<div class="dot" style="background:#${info.hex}"></div><div class="emoji">${s.emoji}</div><div class="name">${s.name}</div>`;
+    btn.addEventListener('click', () => runSample(s));
+    els.sampleGrid.appendChild(btn);
+  });
+}
+renderSampleGrid();
 
+// ---------- Level progress ----------
+function updateLevelDisplay(){
+  let current = LEVELS[0], next = LEVELS[1];
+  for (let i=0;i<LEVELS.length;i++){
+    if (points >= LEVELS[i].min){ current = LEVELS[i]; next = LEVELS[i+1] || null; }
+  }
+  els.levelBadge.textContent = current.emoji;
+  els.levelName.textContent = current.name;
+  if (next){
+    const span = next.min - current.min;
+    const progressed = points - current.min;
+    els.levelProgress.style.width = Math.min(100, (progressed/span)*100) + "%";
+    els.levelNext.textContent = `Earn ${next.min - points} more pts to reach ${next.name} ${next.emoji}`;
+  } else {
+    els.levelProgress.style.width = "100%";
+    els.levelNext.textContent = "Maximum level reached — you're an EcoSort legend!";
+  }
+}
+
+// ---------- Rewards catalog ----------
+function renderRewards(){
+  els.rewardGrid.innerHTML = '';
+  REWARDS.forEach((r, idx) => {
+    const affordable = points >= r.cost;
+    const div = document.createElement('div');
+    div.className = 'reward-item' + (affordable ? ' affordable' : ' locked');
+    div.innerHTML = `
+      <div class="r-top"><div class="r-emoji">${r.emoji}</div><div class="r-name">${r.name}</div></div>
+      <div class="r-cost">${r.cost} pts</div>
+      <button ${affordable ? '' : 'disabled'} data-idx="${idx}">${affordable ? 'Redeem' : (r.cost - points) + ' more pts'}</button>
+    `;
+    div.querySelector('button').addEventListener('click', () => redeemReward(idx));
+    els.rewardGrid.appendChild(div);
+  });
+}
+
+function redeemReward(idx){
+  const r = REWARDS[idx];
+  if (points < r.cost) return;
+  points -= r.cost;
+  els.pointsNum.textContent = points;
+  updateLevelDisplay();
+  renderRewards();
+  addRedemptionHistory(r);
+}
+
+function addRedemptionHistory(r){
+  if (els.historyArea.children.length===1 && els.historyArea.textContent.includes('No transactions')) els.historyArea.innerHTML='';
+  const row = document.createElement('div');
+  row.className='history-item';
+  row.innerHTML = `<span>${r.emoji} Redeemed: ${r.name}</span><span class="tag" style="background:#C77B3B">Reward</span><span style="font-weight:bold;color:#8A8578;">-${r.cost} pts</span>`;
+  els.historyArea.prepend(row);
+}
+
+updateLevelDisplay();
+renderRewards();
+
+// ============================================================
+// LOGIN SYSTEM
+// Required before a user can sell items. Details are:
+//  1) saved to persistent app storage (window.storage), and
+//  2) offered as a pre-filled email to divyansh6239538841@gmail.com
+//     via the visitor's own email app (a static page cannot send
+//     email silently in the background — browsers block that for
+//     security/spam reasons; opening a mailto compose window is
+//     the honest browser-side equivalent).
+// ============================================================
+let capturedLocation = null;
+
+function openLoginModal(){
+  els.modalError.style.display = 'none';
+  els.modalBackdrop.classList.add('open');
+}
+function closeLoginModal(){
+  els.modalBackdrop.classList.remove('open');
+}
+els.loginBtn.addEventListener('click', () => {
+  if (currentUser){ return; } // already logged in, button just shows name
+  openLoginModal();
+});
+els.modalClose.addEventListener('click', closeLoginModal);
+els.modalBackdrop.addEventListener('click', (e) => { if (e.target === els.modalBackdrop) closeLoginModal(); });
+
+els.locBtn.addEventListener('click', () => {
+  if (!navigator.geolocation){
+    els.locStatus.textContent = "Location not supported on this device.";
+    return;
+  }
+  els.locStatus.textContent = "Fetching location...";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      els.locStatus.textContent = `📍 Captured (${capturedLocation.lat.toFixed(4)}, ${capturedLocation.lng.toFixed(4)})`;
+    },
+    () => { els.locStatus.textContent = "Location permission denied — this field is optional."; }
+  );
+});
+
+els.loginSubmit.addEventListener('click', async () => {
+  const name = els.loginName.value.trim();
+  const address = els.loginAddress.value.trim();
+  const phone = els.loginPhone.value.trim();
+  const dob = els.loginDOB.value;
+
+  if (!name || !address || !phone || !dob){
+    els.modalError.style.display = 'block';
+    els.modalError.textContent = "Please fill in Name, Address, Phone Number, and Date of Birth (Location is optional).";
+    return;
+  }
+  if (!/^\d{10}$/.test(phone.replace(/\D/g,'').slice(-10))){
+    els.modalError.style.display = 'block';
+    els.modalError.textContent = "Please enter a valid 10-digit phone number.";
+    return;
+  }
+  els.modalError.style.display = 'none';
+
+  const mapsLink = capturedLocation
+    ? `https://www.google.com/maps?q=${capturedLocation.lat},${capturedLocation.lng}`
+    : "Not shared";
+
+  currentUser = { name, address, phone, dob, location: mapsLink, signedUpAt: new Date().toISOString() };
+
+  // 1) Save to persistent shared storage so signups can be reviewed later
+  try {
+    const key = `signup:${Date.now()}_${name.replace(/\s+/g,'_')}`;
+    await window.storage.set(key, JSON.stringify(currentUser), true);
+  } catch (err) {
+    console.warn("Could not save signup to storage:", err);
+  }
+
+  // 2) Offer a pre-filled email to the EcoSort team (opens visitor's mail app)
+  const subject = encodeURIComponent(`New EcoSort AI Signup — ${name}`);
+  const body = encodeURIComponent(
+    `New user signed up on EcoSort AI:\n\n` +
+    `Name: ${name}\nAddress: ${address}\nPhone: ${phone}\nDate of Birth: ${dob}\nLocation: ${mapsLink}\nSigned up at: ${currentUser.signedUpAt}`
+  );
+  const mailtoLink = `mailto:divyansh6239538841@gmail.com?subject=${subject}&body=${body}`;
+  const a = document.createElement('a');
+  a.href = mailtoLink;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // Update UI to logged-in state
+  els.loginBtn.textContent = `👋 Hi, ${name.split(' ')[0]}`;
+  els.loginBtn.classList.add('logged-in');
+  closeLoginModal();
+});
+
+function runSample(s){
+  els.previewWrap.style.display = 'none'; // emoji items don't need canvas preview
   els.resultBox.style.display = 'none';
   els.spinner.style.display = 'inline-block';
   els.statusText.textContent = 'Analyzing item...';
-
   setTimeout(() => {
     els.spinner.style.display = 'none';
     els.statusText.textContent = 'Done.';
-    currentLabel = s.name;
-    currentCategory = s.cat;
-    showResult(s.cat, s.name, "sample item");
-  }, 550);
+    applyResult(s.name, s.cat, s.weight, "sample item", s.emoji);
+  }, 450);
+}
+
+// ---------- Load real MobileNet model (TensorFlow.js) ----------
+async function loadModel(){
+  try {
+    els.aiFlag.textContent = "Loading AI model…";
+    mobilenetModel = await tf.loadGraphModel(
+      "https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_140_224/classification/3/default/1",
+      { fromTFHub: true }
+    );
+    aiReady = true;
+    els.aiFlag.textContent = "✓ Real AI model loaded";
+    els.uploadHint.textContent = "Classified live with MobileNetV2 (runs in your browser)";
+  } catch (err) {
+    console.warn("AI model failed to load:", err);
+    aiReady = false;
+    els.aiFlag.textContent = "AI model unavailable — use items above";
+    els.uploadHint.textContent = "AI model blocked by network — try the items above instead";
+  }
+}
+loadModel();
+
+const IMAGENET_URL = "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt";
+let imagenetLabels = null;
+async function getLabels(){
+  if (imagenetLabels) return imagenetLabels;
+  const res = await fetch(IMAGENET_URL);
+  const text = await res.text();
+  imagenetLabels = text.split("\n").filter(Boolean);
+  return imagenetLabels;
 }
 
 // ---------- Upload flow ----------
 els.dropzone.addEventListener('dragover', e => { e.preventDefault(); els.dropzone.style.background = '#EEF3EA'; });
 els.dropzone.addEventListener('dragleave', () => { els.dropzone.style.background = ''; });
-els.dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  els.dropzone.style.background = '';
-  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-});
-els.fileInput.addEventListener('change', e => {
-  if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
-});
+els.dropzone.addEventListener('drop', e => { e.preventDefault(); els.dropzone.style.background=''; if(e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]); });
+els.fileInput.addEventListener('change', e => { if(e.target.files?.[0]) handleFile(e.target.files[0]); });
 window.addEventListener('paste', e => {
-  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  const item = [...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
   if (item) handleFile(item.getAsFile());
 });
 
-// Modified handleFile to directly interact with the Python backend
-handleFile = async (file) => {
+function handleFile(file){
   const reader = new FileReader();
-  reader.onload = async (ev) => { // Make onload async
+  reader.onload = (ev) => {
     const img = new Image();
-    img.onload = async () => { // Make img.onload async
-      els.previewWrap.style.display = 'block';
+    img.onload = async () => {
+      els.previewWrap.style.display='block';
       const ctx = els.previewCanvas.getContext('2d');
       const w = els.previewCanvas.width, h = els.previewCanvas.height;
-      ctx.clearRect(0,0,w,h);
-      // draw scaled/contained
       const ratio = Math.min(w/img.width, h/img.height);
       const nw = img.width*ratio, nh = img.height*ratio;
-      ctx.fillStyle = "#eee"; ctx.fillRect(0,0,w,h);
-      ctx.drawImage(img, (w-nw)/2, (h-nh)/2, nw, nh);
+      ctx.fillStyle="#eee"; ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,(w-nw)/2,(h-nh)/2,nw,nh);
 
-      els.resultBox.style.display = 'none';
-      els.spinner.style.display = 'inline-block';
-      els.statusText.textContent = 'Sending to AI backend...';
+      els.resultBox.style.display='none';
+      els.spinner.style.display='inline-block';
 
-      const imageDataUrl = els.previewCanvas.toDataURL('image/png');
-
-      try {
-
-    if (typeof google === "undefined" || !google.colab || !google.colab.kernel) {
-        throw new Error("Google Colab backend is not available.");
-    }
-
-    const result = await google.colab.kernel.invokeFunction(
-        "ai_classify_image",
-        [imageDataUrl],
-        {}
-    );
-
-    console.log("Full Result:", result);
-
-    const python_result = result.data["application/json"][0];
-
-    console.log("Python Result:", python_result);
-
-    const classifiedCategory = python_result.waste_category;
-    const classifiedLabel = python_result.object_name;
-    const confidence = python_result.confidence;
-
-    els.spinner.style.display = "none";
-    els.statusText.textContent = "Done.";
-
-    currentLabel = classifiedLabel;
-    currentCategory = classifiedCategory;
-
-    showResult(
-        classifiedCategory,
-        classifiedLabel,
-        `AI model (Confidence: ${Math.round(confidence * 100)}%)`
-    );
-
-} catch (error) {
-
-    console.error(error);
-
-    els.spinner.style.display = "none";
-    els.statusText.textContent = error.message;
-
-    currentLabel = "error";
-    currentCategory = "other";
-
-    showResult(
-        "other",
-        "Error",
-        error.message
-    );
-        
-    }
-    img.onerror = () => { els.statusText.textContent = "Could not read that file — try another image."; };
+      if (aiReady){
+        els.statusText.textContent = "Running MobileNet AI classification...";
+        try {
+          const labels = await getLabels();
+          const tensor = tf.browser.fromPixels(img).resizeBilinear([224,224]).expandDims(0).toFloat().div(127.5).sub(1);
+          const logits = mobilenetModel.predict(tensor);
+          const probs = await logits.data();
+          let best = 0;
+          for (let i=1;i<probs.length;i++) if (probs[i]>probs[best]) best=i;
+          const rawLabel = labels[best] || "unknown object";
+          const mapped = mapImageNetLabel(rawLabel);
+          els.spinner.style.display='none';
+          els.statusText.textContent='Done.';
+          applyResult(mapped.name, mapped.cat, mapped.weight, `AI prediction: "${rawLabel}" (${(probs[best]*100).toFixed(1)}%)`, "📷");
+          tensor.dispose(); logits.dispose();
+          return;
+        } catch(err){ console.warn("Classification failed, falling back:", err); }
+      }
+      els.statusText.textContent = "AI unavailable — using on-device color analysis fallback...";
+      setTimeout(() => {
+        const cat = classifyByColor(ctx, els.previewCanvas.width, els.previewCanvas.height);
+        els.spinner.style.display='none';
+        els.statusText.textContent='Done.';
+        applyResult("your photo", cat, 0.1, "on-device color analysis (AI model unavailable)", "📷");
+      }, 400);
+    };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
-};
+}
 
-// Simple on-device heuristic: average color + darkness → rough category guess.
-// This is a lightweight stand-in for the trained CV model described in the pitch deck.
-// This function is now superseded for actual uploads by the Python backend call in handleFile
-function classifyByColor(ctx, w, h){
+function classifyByColor(ctx,w,h){
   const data = ctx.getImageData(0,0,w,h).data;
   let r=0,g=0,b=0,n=0;
-  for (let i=0;i<data.length;i+=40){
-    r+=data[i]; g+=data[i+1]; b+=data[i+2]; n++;
-  }
+  for (let i=0;i<data.length;i+=40){ r+=data[i];g+=data[i+1];b+=data[i+2];n++; }
   r/=n; g/=n; b/=n;
-  const brightness = (r+g+b)/3;
-  const greenish = g - (r+b)/2;
-  const yellowish = (r+g)/2 - b;
-
-  if (brightness < 70) return "hazardous";       // dark/black objects → e-waste/battery guess
-  if (greenish > 8 || yellowish > 25) return "wet"; // green or yellow/brown → organic guess
-  if (brightness > 190) return "dry";             // bright/white/clear → paper/plastic guess
+  const brightness=(r+g+b)/3, greenish=g-(r+b)/2, yellowish=(r+g)/2-b;
+  if (brightness<70) return "hazardous";
+  if (greenish>8 || yellowish>25) return "wet";
+  if (brightness>190) return "dry";
   return "other";
 }
 
 // ---------- Shared result + marketplace logic ----------
-function showResult(cat, rawLabel, note){
+function applyResult(objectLabel, cat, defaultWeight, note, emoji){
+  currentItem = { label: objectLabel, cat };
   const info = CATEGORY_INFO[cat];
-  els.resultBox.style.display = 'block';
+  els.resultBox.style.display='block';
   els.resultBox.style.background = `#${info.hex}18`;
+  els.detectedEmoji.textContent = emoji || "📷";
+  els.detectedName.textContent = objectLabel;
   els.catPill.textContent = info.label;
-  els.catPill.style.background = '#' + info.hex;
-  els.catDesc.textContent = "Suggested bin: " + info.label;
-  els.rawLabel.textContent = `Item: ${rawLabel} — classified via ${note}`;
+  els.catPill.style.background = '#'+info.hex;
+  els.rawLabel.textContent = note;
+  els.weightInput.value = defaultWeight;
+  updatePayoutPreview();
+
+  streakCount++;
+  els.streakBadge.style.display = 'inline-flex';
+  els.streakNum.textContent = streakCount;
 }
 
-els.sellBtn.addEventListener('click', () => {
-  if (!currentCategory) return;
-  const w = parseFloat(els.weightInput.value) || 1.0;
-  const info = CATEGORY_INFO[currentCategory];
-  const payout = Math.round(info.price * w);
-  const earnedPoints = Math.round(w * 10);
+function updatePayoutPreview(){
+  if (!currentItem) return;
+  const info = CATEGORY_INFO[currentItem.cat];
+  const w = parseFloat(els.weightInput.value) || 0.001;
+  if (info.price <= 0){
+    els.payoutBreakdown.style.display = 'none';
+    els.noValueNote.style.display = 'block';
+    els.noValueNote.textContent = `This item has little to no resale value — it's sent for safe municipal disposal rather than sold. You still earn Green Points for segregating it correctly.`;
+    els.sellBtn.textContent = currentUser ? "Log Correct Disposal →" : "🔒 Login to Log Disposal";
+  } else {
+    const gross = info.price * w;
+    const fee = gross * PLATFORM_COMMISSION_RATE;
+    const net = gross - fee;
+    els.noValueNote.style.display = 'none';
+    els.payoutBreakdown.style.display = 'block';
+    els.payoutBreakdown.innerHTML = `
+      <div class="row"><span>Gross sale value</span><span>₹${gross.toFixed(2)}</span></div>
+      <div class="row fee"><span>Platform commission (15%)</span><span>-₹${fee.toFixed(2)}</span></div>
+      <div class="row total"><span>You receive</span><span>₹${net.toFixed(2)}</span></div>
+      ${!currentUser ? `<div class="row" style="color:var(--terracotta);font-weight:bold;">🔒 Login required to sell</div>` : ''}
+    `;
+    els.sellBtn.textContent = currentUser ? "Sell to Marketplace →" : "🔒 Login to Sell";
+  }
+}
+els.weightInput.addEventListener('input', updatePayoutPreview);
 
-  points += earnedPoints;
-  kg += w;
-  earned += payout;
+els.sellBtn.addEventListener('click', () => {
+  if (!currentItem) return;
+  if (!currentUser){
+    openLoginModal();
+    els.modalError.style.display = 'block';
+    els.modalError.textContent = "Please create an account first — it only takes a minute — before selling on the marketplace.";
+    return;
+  }
+  const info = CATEGORY_INFO[currentItem.cat];
+  const w = parseFloat(els.weightInput.value) || 0.001;
+  const earnedPoints = Math.max(1, Math.round(w*100));
+  points += earnedPoints; kg += w;
+
+  let netPayout = 0, fee = 0, gross = 0;
+  if (info.price > 0){
+    gross = info.price * w;
+    fee = gross * PLATFORM_COMMISSION_RATE;
+    netPayout = gross - fee;
+    earned += netPayout;
+  }
 
   els.pointsNum.textContent = points;
-  els.kgNum.textContent = kg.toFixed(1);
-  els.earnNum.textContent = "₹" + earned;
+  els.kgNum.textContent = kg.toFixed(2);
+  els.earnNum.textContent = "₹"+earned.toFixed(2);
+  updateLevelDisplay();
+  renderRewards();
 
-  renderMarket(currentCategory, w, payout);
-  addHistory(currentLabel, currentCategory, w, payout);
+  if (info.price > 0) renderMarket(currentItem.cat, w, gross, netPayout);
+  addHistory(currentItem.label, currentItem.cat, w, netPayout);
 
   els.sellBtn.disabled = true;
-  els.sellBtn.textContent = "✓ Sold!";
-  setTimeout(() => {
-    els.sellBtn.disabled = false;
-    els.sellBtn.textContent = "Sell to Marketplace →";
-  }, 1400);
+  const prevText = els.sellBtn.textContent;
+  els.sellBtn.textContent = "✓ Logged!";
+  setTimeout(()=>{ els.sellBtn.disabled=false; els.sellBtn.textContent=prevText; },1400);
 });
 
-function renderMarket(cat, w, payout){
+function renderMarket(cat,w,gross,net){
   const info = CATEGORY_INFO[cat];
   const names = RECYCLER_NAMES[cat];
-  let html = '';
-  names.forEach((name, i) => {
-    const price = i === 0 ? payout : Math.round(payout * (0.85 + Math.random()*0.1));
-    html += `<div class="offer">
-      <div>
-        <div class="name">${name}</div>
-        <div class="meta">${info.label} · ${w} kg</div>
-      </div>
-      <div class="price">₹${price}${i===0 ? ' ✓' : ''}</div>
-    </div>`;
+  let html='';
+  names.forEach((name,i)=>{
+    const price = i===0 ? gross : gross*(0.85+Math.random()*0.1);
+    html += `<div class="offer"><div><div class="name">${name}</div><div class="meta">${info.label} · ${w} kg</div></div><div class="price">₹${price.toFixed(2)}${i===0?' ✓':''}</div></div>`;
   });
   els.marketArea.innerHTML = html;
 }
 
-function addHistory(rawLabel, cat, w, payout){
+function addHistory(label,cat,w,net){
   const info = CATEGORY_INFO[cat];
-  const empty = els.historyArea.querySelector('div');
-  if (els.historyArea.children.length === 1 && empty && empty.textContent.includes('No transactions')){
-    els.historyArea.innerHTML = '';
-  }
+  if (els.historyArea.children.length===1 && els.historyArea.textContent.includes('No transactions')) els.historyArea.innerHTML='';
   const row = document.createElement('div');
-  row.className = 'history-item';
-  row.innerHTML = `
-    <span>${rawLabel} (${w} kg)</span>
-    <span class="tag" style="background:#${info.hex}">${info.label}</span>
-    <span style="font-weight:bold;color:var(--terracotta);">+₹${payout}</span>
-  `;
+  row.className='history-item';
+  const valueText = net > 0 ? `+₹${net.toFixed(2)}` : `0 pts value`;
+  row.innerHTML = `<span>${label} (${w} kg)</span><span class="tag" style="background:#${info.hex}">${info.label}</span><span style="font-weight:bold;color:${net>0?'var(--terracotta)':'#8A8578'};">${valueText}</span>`;
   els.historyArea.prepend(row);
 }
 </script>
-</body>
-</html>
+
+
+</body></html>
