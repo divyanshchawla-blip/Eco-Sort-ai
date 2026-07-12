@@ -114,7 +114,7 @@ app.post('/api/classify', async (req, res) => {
   }
 
   try {
-    const geminiModel = "gemini-2.5-flash"; // free-tier vision-capable model
+    const geminiModel = "gemini-3-flash"; // Google's current recommended free-tier vision model (as of mid-2026)
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
 
     const geminiResponse = await fetch(geminiUrl, {
