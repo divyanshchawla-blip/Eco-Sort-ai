@@ -120,7 +120,7 @@ app.post('/api/classify', async (req, res) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 300,
         messages: [{
           role: "user",
@@ -142,7 +142,14 @@ app.post('/api/classify', async (req, res) => {
     if (!anthropicResponse.ok) {
       const errText = await anthropicResponse.text();
       console.error("Anthropic API error:", anthropicResponse.status, errText);
-      return res.status(502).json({ error: `AI service returned status ${anthropicResponse.status}` });
+      let detail = errText;
+      try {
+        const errJson = JSON.parse(errText);
+        detail = errJson.error?.message || errText;
+      } catch (parseErr) { /* errText wasn't JSON, use raw text as-is */ }
+      return res.status(502).json({
+        error: `AI service returned status ${anthropicResponse.status}: ${detail}`
+      });
     }
 
     const data = await anthropicResponse.json();
