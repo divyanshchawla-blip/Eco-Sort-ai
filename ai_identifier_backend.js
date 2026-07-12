@@ -139,7 +139,11 @@ app.post('/api/classify', async (req, res) => {
             },
           ],
         }],
-        generationConfig: { maxOutputTokens: 300, temperature: 0.2 },
+        generationConfig: {
+          maxOutputTokens: 800,
+          temperature: 0.2,
+          thinkingConfig: { thinkingBudget: 0 }, // disable extended "thinking" tokens — this is a short classification task, not a reasoning task, and thinking mode was eating the token budget before any answer text got written
+        },
       }),
     });
     return response;
@@ -204,14 +208,14 @@ app.post('/api/classify', async (req, res) => {
     // markdown code fences around the JSON despite instructions not to.
     const jsonMatch = textPart.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return res.status(502).json({ error: "Could not find JSON in AI response", raw: textPart.text.slice(0, 200) });
+      return res.status(502).json({ error: `Could not find JSON in AI response. Raw text: "${textPart.text.slice(0, 300)}"` });
     }
 
     let parsed;
     try {
       parsed = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
-      return res.status(502).json({ error: "AI response was not valid JSON", raw: jsonMatch[0].slice(0, 200) });
+      return res.status(502).json({ error: `AI response was not valid JSON. Raw text: "${jsonMatch[0].slice(0, 300)}"` });
     }
 
     // Server-side validation — never trust external AI output blindly
