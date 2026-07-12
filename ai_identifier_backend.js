@@ -113,11 +113,18 @@ app.post('/api/classify', async (req, res) => {
     return res.status(400).json({ error: "Missing or invalid 'image_base64' in request body." });
   }
 
-  try {
-    const geminiModel = "gemini-3-flash"; // Google's current recommended free-tier vision model (as of mid-2026)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
+  // Tried in order — if Google renames/retires one, the next candidate
+  // picks up the slack automatically instead of the whole feature breaking.
+  const MODEL_CANDIDATES = [
+    "gemini-flash-latest",
+    "gemini-3-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+  ];
 
-    const geminiResponse = await fetch(geminiUrl, {
+  async function callGemini(modelName) {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -132,12 +139,39 @@ app.post('/api/classify', async (req, res) => {
             },
           ],
         }],
-        generationConfig: {
-          maxOutputTokens: 300,
-          temperature: 0.2,
-        },
+        generationConfig: { maxOutputTokens: 300, temperature: 0.2 },
       }),
     });
+    return response;
+  }
+
+  try {
+    let geminiResponse = null;
+    let lastErrorDetail = "";
+
+    for (const modelName of MODEL_CANDIDATES) {
+      const attempt = await callGemini(modelName);
+      if (attempt.ok) {
+        geminiResponse = attempt;
+        break;
+      }
+      // 404 = model not found/retired on this project — try the next candidate.
+      // Any other error (401, 429, 500, etc.) is a real problem, not a naming
+      // issue, so stop retrying and surface it immediately.
+      if (attempt.status !== 404) {
+        geminiResponse = attempt;
+        break;
+      }
+      const errText = await attempt.text();
+      lastErrorDetail = errText;
+      console.warn(`Model "${modelName}" unavailable (404), trying next candidate...`);
+    }
+
+    if (!geminiResponse) {
+      return res.status(502).json({
+        error: `All candidate models unavailable. Last error: ${lastErrorDetail}`
+      });
+    }
 
     if (!geminiResponse.ok) {
       const errText = await geminiResponse.text();
