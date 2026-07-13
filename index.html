@@ -1069,10 +1069,9 @@ els.loginSubmit.addEventListener('click', async () => {
   const mapsLink = capturedLocation ? `https://www.google.com/maps?q=${capturedLocation.lat},${capturedLocation.lng}` : "Not shared";
   currentUser = { name, address, phone, dob, location: mapsLink, signedUpAt: new Date().toISOString() };
 
-  try {
-    const key = `signup:${Date.now()}_${name.replace(/\s+/g,'_')}`;
-    await window.storage.set(key, JSON.stringify(currentUser), true);
-  } catch(err){ console.warn("Could not save signup:", err); }
+  // Note: signup data is persisted via the silent backend email below, not
+  // via browser storage — window.storage only exists inside Claude's own
+  // preview environment and would throw on a real deployed site like this.
 
   // Silent backend notification — the signing-up user never sees this happen.
   // Uses the same backend as the AI classifier (BACKEND_URL's origin) so no
