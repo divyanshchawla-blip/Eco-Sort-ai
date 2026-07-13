@@ -152,6 +152,15 @@
   @keyframes floatUp{ 0%{opacity:0; transform:translate(-50%,10px) scale(0.8);} 20%{opacity:1;} 100%{opacity:0; transform:translate(-50%,-42px) scale(1.15);} }
 
   .confetti-piece{ position:fixed; top:-10px; width:8px;height:14px; z-index:200; pointer-events:none; border-radius:2px; animation:confettiFall linear forwards; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--forest); color:white; padding:14px 22px; border-radius:12px;
+    font-size:13.5px; font-weight:bold; box-shadow:0 8px 24px rgba(0,0,0,0.25);
+    z-index:300; opacity:0; transition:opacity 0.35s ease, transform 0.35s ease;
+    max-width:90vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   @keyframes confettiFall{ to{ transform:translateY(105vh) rotate(540deg); opacity:0.3; } }
 
   /* Level card */
@@ -1033,6 +1042,18 @@ function spawnConfetti(){
   }
 }
 
+function showToast(text){
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3200);
+}
+
 // ============================================================
 // LOGIN SYSTEM
 // ============================================================
@@ -1088,6 +1109,8 @@ els.loginSubmit.addEventListener('click', async () => {
   els.loginBtn.textContent = `👋 Hi, ${name.split(' ')[0]}`;
   els.loginBtn.classList.add('logged-in');
   updateSellCartButton();
+  closeLoginModal();
+  showToast(`✅ Account created — welcome, ${name.split(' ')[0]}! You can now sell on the marketplace.`);
 });
 </script>
 </body>
