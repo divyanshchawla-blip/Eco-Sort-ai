@@ -1,7 +1,7 @@
 {
   "name": "ecosort-ai-identifier-backend",
   "version": "1.0.0",
-  "description": "Backend AI identifier service for EcoSort AI — securely classifies waste photos via Google Gemini's free-tier vision API without exposing an API key to the browser.",
+  "description": "Backend service for EcoSort AI — classifies waste photos via Google Gemini's free-tier vision API and silently emails signup notifications, without exposing any secrets to the browser.",
   "main": "ai_identifier_backend.js",
   "scripts": {
     "start": "node ai_identifier_backend.js"
@@ -9,7 +9,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "nodemailer": "^6.9.14"
   },
   "engines": {
     "node": ">=18.0.0"
