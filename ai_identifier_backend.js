@@ -65,14 +65,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const NOTIFY_EMAIL_TO = process.env.NOTIFY_EMAIL_TO || "divyansh6239538841@gmail.com";
+const RESEND_FROM = process.env.RESEND_FROM || "EcoSort AI <onboarding@resend.dev>";
 
 if (!GEMINI_API_KEY) {
   console.error("❌ Missing GEMINI_API_KEY. Get a free key at https://aistudio.google.com/apikey and create a .env file — see setup instructions at the top of this file.");
@@ -82,12 +81,12 @@ if (!GEMINI_API_KEY) {
 // Email sending is optional — if not configured, /api/notify-signup will
 // log a warning and skip sending rather than crashing the whole server,
 // since AI classification should keep working even without email set up.
-let mailTransporter = null;
-if (EMAIL_USER && EMAIL_APP_PASSWORD) {
-  mailTransporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: EMAIL_USER, pass: EMAIL_APP_PASSWORD },
-  });
+// NOTE: uses Resend's HTTP API (not SMTP) because Render's free tier (and
+// most free hosting tiers) block outbound SMTP connections as an anti-spam
+// measure — a plain HTTPS request like this one is not affected by that.
+const emailConfigured = !!RESEND_API_KEY;
+if (!emailConfigured) {
+  console.warn("⚠️  RESEND_API_KEY not set — signup notifications will be skipped (AI classification still works fine).");
 } else {
   console.warn("⚠️  EMAIL_USER / EMAIL_APP_PASSWORD not set — signup notifications will be skipped (AI classification still works fine).");
 }
@@ -275,18 +274,32 @@ app.post('/api/notify-signup', async (req, res) => {
     return res.status(400).json({ error: "Missing required signup fields." });
   }
 
-  if (!mailTransporter) {
+  if (!emailConfigured) {
     console.warn("Signup notification skipped — email not configured:", name);
     return res.json({ status: "skipped", reason: "email not configured on server" });
   }
 
   try {
-    await mailTransporter.sendMail({
-      from: `"EcoSort AI" <${EMAIL_USER}>`,
-      to: NOTIFY_EMAIL_TO,
-      subject: `New EcoSort AI Signup — ${name}`,
-      text: `New user signed up on EcoSort AI:\n\nName: ${name}\nAddress: ${address}\nPhone: ${phone}\nDate of Birth: ${dob || "not provided"}\nLocation: ${location || "not shared"}\nSigned up at: ${signedUpAt || new Date().toISOString()}`,
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM,
+        to: [NOTIFY_EMAIL_TO],
+        subject: `New EcoSort AI Signup — ${name}`,
+        text: `New user signed up on EcoSort AI:\n\nName: ${name}\nAddress: ${address}\nPhone: ${phone}\nDate of Birth: ${dob || "not provided"}\nLocation: ${location || "not shared"}\nSigned up at: ${signedUpAt || new Date().toISOString()}`,
+      }),
     });
+
+    if (!resendResponse.ok) {
+      const errText = await resendResponse.text();
+      console.error("Resend API error:", resendResponse.status, errText);
+      return res.status(200).json({ status: "failed", error: "Email could not be sent, but signup was still recorded." });
+    }
+
     console.log(`✅ Signup notification sent to ${NOTIFY_EMAIL_TO} for "${name}"`);
     return res.json({ status: "sent" });
   } catch (err) {
@@ -301,8 +314,8 @@ app.post('/api/notify-signup', async (req, res) => {
 app.get('/api/health', (req, res) => res.json({
   status: "ok",
   geminiConfigured: !!GEMINI_API_KEY,
-  emailConfigured: !!mailTransporter,
-  notifyEmailTo: mailTransporter ? NOTIFY_EMAIL_TO : null,
+  emailConfigured: emailConfigured,
+  notifyEmailTo: emailConfigured ? NOTIFY_EMAIL_TO : null,
 }));
 
 app.listen(PORT, () => {
