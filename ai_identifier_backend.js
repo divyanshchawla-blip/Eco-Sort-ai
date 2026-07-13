@@ -287,6 +287,7 @@ app.post('/api/notify-signup', async (req, res) => {
       subject: `New EcoSort AI Signup — ${name}`,
       text: `New user signed up on EcoSort AI:\n\nName: ${name}\nAddress: ${address}\nPhone: ${phone}\nDate of Birth: ${dob || "not provided"}\nLocation: ${location || "not shared"}\nSigned up at: ${signedUpAt || new Date().toISOString()}`,
     });
+    console.log(`✅ Signup notification sent to ${NOTIFY_EMAIL_TO} for "${name}"`);
     return res.json({ status: "sent" });
   } catch (err) {
     console.error("Failed to send signup notification email:", err);
@@ -297,7 +298,12 @@ app.post('/api/notify-signup', async (req, res) => {
 });
 
 // Simple health check
-app.get('/api/health', (req, res) => res.json({ status: "ok" }));
+app.get('/api/health', (req, res) => res.json({
+  status: "ok",
+  geminiConfigured: !!GEMINI_API_KEY,
+  emailConfigured: !!mailTransporter,
+  notifyEmailTo: mailTransporter ? NOTIFY_EMAIL_TO : null,
+}));
 
 app.listen(PORT, () => {
   console.log(`✅ EcoSort AI identifier backend running on http://localhost:${PORT}`);
